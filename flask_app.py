@@ -10,10 +10,10 @@ def export_playlist():
         # Retrieve the playlist link from the input field
         playlist_url = request.form.get("playlist_url")
 
-        tracklist = spotify.get_tracklist_from_playlist(playlist_url)
+        playlist = spotify.Playlist(playlist_url)
 
-        for track in tracklist:
-            pass
+        for item_uri in playlist.get_items_uri():
+            track = spotify.Track(item_uri)
 
         # For now, just display the URL as confirmation
         return f"<h1>Playlist URL received: {playlist_url}</h1>"
