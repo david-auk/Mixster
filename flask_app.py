@@ -23,7 +23,10 @@ def export_playlist():
 
 @app.route('/load/<track_id>')
 def load_track(track_id):
-    return f'{track_id} < track_id'
+    #https://open.spotify.com/track/09IGIoxYilGSnU0b0OambC?si=e079268c013e4365
+    track = spotify.Track(track_id)
+
+    return f'Name: {track.name}\nArtist: {track.artist}\nDate: {track.release_date}'
 
 
 if __name__ == '__main__':
