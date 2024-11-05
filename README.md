@@ -3,7 +3,7 @@ A open-source spin on the interactive music card game: Hitster
 
 ### Setup:
 
-1. Create [This]() Database
+1. Setup [This](#database--datastorage) Database
 
 
 2. Create a new file: `/spotify/api/secret.py` containing:
