@@ -10,8 +10,13 @@ def export_playlist():
 
         try:
             playlist = spotify.Playlist(playlist_url)
-        except spotify.playlist.PlaylistError as e:
-            return f"Failed to load playlist: {e}"
+        except spotify.playlist.PrivatePlaylistException as e:
+            return f"Playlist is not public: {e}"  # If playlist is private
+        except spotify.playlist.PublicPlaylistException as e:
+            return f"Failed to pull playlist: {e}"  # If spotapi pull Fails
+        except Exception as e:
+            return f"Failed to load playlist: {e}"  # Else
+
 
         return f"<h1>Playlist received: {playlist.title}</h1>"
 

@@ -1,7 +1,8 @@
 import json
 
-from . import utilities
-from spotapi import PublicPlaylist, PlaylistError
+from spotify import utilities
+from spotapi import PublicPlaylist
+from .exceptions import *
 
 
 class Playlist:
@@ -12,8 +13,9 @@ class Playlist:
 
         # Validating
         if not self.__is_public(self.__soup):
-            raise PlaylistError("Playlist not public")
+            raise PrivatePlaylistException("Playlist not public")
 
+        # If the web gui had redirected, get new soup from that new uri
         if not self.__is_valid_soup(self.__soup):
             self.__soup = self.__renew_soup_from_redirecturl(self.__soup)
 
@@ -33,7 +35,7 @@ class Playlist:
             rawdata = pub_list_obj.get_playlist_info(limit = self.length)
 
             if "errors" in rawdata:
-                raise PlaylistError(rawdata['errors'])
+                raise PublicPlaylistException(rawdata['errors'])
 
             self.items = rawdata['data']['playlistV2']['content']['items']
 
@@ -82,7 +84,7 @@ class Playlist:
         else:
             return None
 
-    def get_items_uri(self): # Todo make (option / default) all uri's unique
+    def get_items_uri(self):  # Todo make (option / default) all uri's unique
         track_uris = []
         for item in self.items:
             item_uri = item['itemV2']['data']['uri']
