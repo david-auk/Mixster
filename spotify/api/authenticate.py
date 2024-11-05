@@ -5,17 +5,14 @@ from . import secret
 
 SPOTIFY_CALLBACK_SLUG = 'callback'
 
-SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:5000/' + SPOTIFY_CALLBACK_SLUG  # Replace with your callback URL
+SPOTIFY_REDIRECT_URI = f'http://127.0.0.1:5000/auth/{SPOTIFY_CALLBACK_SLUG}'  # Replace with your callback URL
 
 # Authorization URL for Spotify
 SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize'
 SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 
-# Your desired song URI (replace with any Spotify track URI)
-SONG_URI = 'spotify:track:09IGIoxYilGSnU0b0OambC'
-
 # Spotify scopes needed to control playback
-SCOPE = 'user-modify-playback-state user-read-playback-state'
+SCOPE = 'user-modify-playback-state' #user-read-playback-state
 
 
 class Authenticate:
