@@ -48,7 +48,7 @@ erDiagram
 
 **SQL**:
 
-```mariadb
+```SQL
 -- Create the autodl database
 CREATE DATABASE IF NOT EXISTS mixster;
 
