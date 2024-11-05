@@ -3,6 +3,7 @@ import json
 from . import utilities
 from spotapi import PublicPlaylist, PlaylistError
 
+
 class Playlist:
     def __init__(self, playlist_uri: str):
         self.url = playlist_uri  # check with re for formatting issues

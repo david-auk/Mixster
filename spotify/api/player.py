@@ -13,7 +13,6 @@ class Player:
     def play_track(self, track_uri: str):
         access_token = self.authenticate_obj.get_access_token()
 
-        # Step 4: Control playback on the user’s device
         headers = {
             'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json'

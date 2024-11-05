@@ -23,6 +23,8 @@ class Authenticate:
     def __init__(self, code=None, access_token=None):
 
         if code:
+
+            # Authenticate
             auth_response = requests.post(SPOTIFY_TOKEN_URL, data = {
                 'grant_type': 'authorization_code',
                 'code': code,
