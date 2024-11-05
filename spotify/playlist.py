@@ -82,7 +82,7 @@ class Playlist:
         else:
             return None
 
-    def get_items_uri(self):
+    def get_items_uri(self): # Todo make (option / default) all uri's unique
         track_uris = []
         for item in self.items:
             item_uri = item['itemV2']['data']['uri']
