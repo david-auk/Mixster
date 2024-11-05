@@ -12,15 +12,12 @@ SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize'
 SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 
 # Spotify scopes needed to control playback
-SCOPE = 'user-modify-playback-state' #user-read-playback-state
+SCOPE = 'user-modify-playback-state'  # user-read-playback-state
 
 
 class Authenticate:
-
     def __init__(self, code=None, access_token=None):
-
         if code:
-
             # Authenticate
             auth_response = requests.post(SPOTIFY_TOKEN_URL, data = {
                 'grant_type': 'authorization_code',
