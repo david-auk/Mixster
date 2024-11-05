@@ -162,4 +162,4 @@ cython_debug/
 #.idea/
 
 # Secret file (with API credenticals)
-/secret.py
+/spotify/api/secret.py

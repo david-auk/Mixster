@@ -1,3 +1,5 @@
+import json
+
 from . import utilities
 from spotapi import PublicPlaylist, PlaylistError
 
@@ -16,6 +18,8 @@ class Playlist:
 
         # Getting vars
         self.length = self.__get_playlist_length(self.__soup)
+        self.title = self.__soup.find("meta", property = "og:title")["content"]
+        self.image_url = self.__soup.find("meta", property = "og:image")["content"]
 
         pub_list_obj = PublicPlaylist(self.url)
 
@@ -65,7 +69,7 @@ class Playlist:
             data = json.loads(script_content)
             redirect_url = data.get("redirectUrl")
 
-            return build_soup(redirect_url)
+            return utilities.build_soup(redirect_url)
         else:
             raise Exception("Redirect url not found")
 

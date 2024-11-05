@@ -1,74 +1,70 @@
-from flask import Flask, redirect, request, session
-import requests
+from flask import Flask, redirect, render_template, request, session, url_for
 import os
-import secret
+import spotify.api
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Spotify API constants
 
-SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:5000/callback'  # Replace with your callback URL
+@app.route("/export", methods = ["GET", "POST"])
+def export_playlist():
+    if request.method == "POST":
+        # Retrieve the playlist link from the input field
+        playlist_url = request.form.get("playlist_url")
 
-# Authorization URL for Spotify
-SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize'
-SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
+        try:
+            playlist = spotify.Playlist(playlist_url)
+        except spotify.playlist.PlaylistError as e:
+            return f"Failed to load playlist: {e}"
 
-# Spotify API endpoint for playback control
-SPOTIFY_PLAYBACK_URL = 'https://api.spotify.com/v1/me/player/play'
+        # for item_uri in playlist.get_items_uri():
+        #    track = spotify.Track(item_uri)
 
-# Your desired song URI (replace with any Spotify track URI)
-SONG_URI = 'spotify:track:09IGIoxYilGSnU0b0OambC'
+        # For now, just display the URL as confirmation
+        return f"<h1>Playlist received: {playlist.title}</h1>"
 
-# Spotify scopes needed to control playback
-SCOPE = 'user-modify-playback-state user-read-playback-state'
+    return render_template("export_playlist.html")
+
+
+'''Spotify-user specific methods:'''
 
 
 @app.route('/authenticate')
 def login():
     # Step 1: Redirect user to Spotify for authorization
-    return redirect(f"{SPOTIFY_AUTH_URL}?client_id={secret.SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={SPOTIFY_REDIRECT_URI}&scope={SCOPE}")
+    # Capture the original destination using the 'next' parameter
+    next_url = request.args.get('next', '/')
+    login_url = spotify.api.Authenticate.get_login_url()
+    return redirect(f"{login_url}&state={next_url}")  # Add 'state' parameter for redirection
 
 
-@app.route('/callback')
+@app.route(f'/{spotify.api.authenticate.SPOTIFY_CALLBACK_SLUG}')
 def callback():
     # Step 2: Spotify redirects back to your callback with an authorization code
-    code = request.args.get('code')
-    # Step 3: Exchange code for access token
-    auth_response = requests.post(SPOTIFY_TOKEN_URL, data={
-        'grant_type': 'authorization_code',
-        'code': code,
-        'redirect_uri': SPOTIFY_REDIRECT_URI,
-        'client_id': secret.SPOTIFY_CLIENT_ID,
-        'client_secret': secret.SPOTIFY_CLIENT_SECRET,
-    })
-    auth_response_data = auth_response.json()
-    session['access_token'] = auth_response_data['access_token']
-    return "Authorization successful! You can now play music."
+    auth_obj = spotify.api.Authenticate(request.args.get('code'))
+    session['access_token'] = auth_obj.get_access_token()
+
+    # Retrieve the 'state' parameter for redirection
+    next_url = request.args.get('state', '/')
+    return redirect(next_url)
 
 
-@app.route('/play-song')
-def play_song():
+@app.route('/play/<track_uri>')
+def play_song(track_uri):
     access_token = session.get('access_token')
     if not access_token:
-        return redirect('/authenticate')
+        # Redirect to /authenticate and include the original URL in the 'next' parameter
+        return redirect(url_for('login', next = request.path))
 
-    # Step 4: Control playback on the user’s device
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
-    json_data = {
-        'uris': [SONG_URI]
-    }
+    auth_obj = spotify.api.Authenticate(access_token = access_token)
+    player = spotify.api.Player(auth_obj)
 
-    # Sending request to play the song
-    response = requests.put(SPOTIFY_PLAYBACK_URL, headers=headers, json=json_data)
-
-    if response.status_code == 204:
+    try:
+        player.play_track(track_uri)
         return "Song is playing in the background!"
-    else:
-        return f"Failed to play song: {response.json().get('error', {}).get('message', 'Unknown error')}"
+    except RuntimeError as e:
+        return f"Failed to play song: {e}"
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug = True)
