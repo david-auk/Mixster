@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  flask:
+    build:
+      context: ./flask
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./flask:/app
+      - ./spotify:/app/spotify
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - backend
+      - frontend
+
+
+  celery:
+    build:
+      context: ./celery
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - backend
+
+  redis:
+    image: redis:alpine
+    expose:
+      - "6379:6379"
+    networks:
+      - backend
+
+
+networks:
+  backend:
+    internal: true
+  frontend:
+    internal: false

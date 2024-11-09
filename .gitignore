@@ -163,3 +163,4 @@ cython_debug/
 
 # Secret file (with API credenticals)
 /spotify/api/secret.py
+/flask/spotify

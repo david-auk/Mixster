@@ -1,4 +1,5 @@
 spotapi==1.1.0
+requests
 pymongo==4.10.1
 redis==5.2.0
 websockets==13.1
