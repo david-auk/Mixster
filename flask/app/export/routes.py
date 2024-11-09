@@ -1,4 +1,4 @@
-from flask import render_template, request, jsonify
+from flask import render_template, request
 from . import export_bp
 import spotify.api
 
@@ -18,15 +18,7 @@ def export_playlist():
             return f"Failed to load playlist: {e}"  # Catch-all exception
 
         # Extract tracks from the playlist
-        track_names = []
         for track_uri in playlist.get_items_uri():
             track = spotify.Track(track_uri)  # This operation is slow
-            track_names.append(track.name)
-
-        # You can return the track names or simply indicate success
-        return jsonify({
-            "message": f"Playlist received: {playlist.title}",
-            "tracks": track_names  # Optional: include the tracks
-        })
 
     return render_template("export/export_playlist.html")

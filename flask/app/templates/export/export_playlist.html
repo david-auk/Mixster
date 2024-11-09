@@ -3,47 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mixster - Playlist Extractor</title>
-    <style>
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background-color: #ddd;
-            border-radius: 5px;
-            overflow: hidden;
-        }
-
-        .progress {
-            height: 100%;
-            background-color:  
- #007bff;
-            border-radius: 5px;
-        }
-    </style>
+    <title>Mixster - Enter Playlist URL</title>
 </head>
 <body>
     <h1>Enter Spotify Public Playlist URL</h1>
-    {% if playlist_url %}
-        <h2>Playlist: {{ playlist_url }}</h2>
-        {% if tracks %}
-            <h3>Tracks:</h3>
-            <ul>
-                {% for track in tracks %}
-                    <li>{{ track.name }}</li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>Loading playlist... ({{ progress }}% complete)</p>
-            <div class="progress-bar">
-                <div class="progress" style="width: {{ progress }}%;"></div>
-            </div>
-        {% endif %}
-    {% else %}
-        <form method="POST">
-            <label for="playlist_url">Playlist URL:</label>
-            <input type="url" id="playlist_url" name="playlist_url" placeholder="https://open.spotify.com/playlist/..." required>
-            <button type="submit">Submit</button>
-        </form>
-    {% endif %}
+    <form method="POST">
+        <label for="playlist_url">Playlist URL:</label>
+        <input type="url" id="playlist_url" name="playlist_url" placeholder="https://open.spotify.com/playlist/..." required>
+        <button type="submit">Submit</button>
+    </form>
 </body>
 </html>
