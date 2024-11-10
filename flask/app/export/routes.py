@@ -12,7 +12,6 @@ if environ.get('MYSQL_DATABASE') is not None:
         host = environ.get("MYSQL_HOST")
     )
 
-
 @export_bp.route("/", methods = ["GET", "POST"])
 def export_playlist():
     if request.method == "POST":

@@ -2,9 +2,26 @@ import mysql.connector
 
 
 class Database:
-    def __init__(self, database, user, password, host='localhost'):
-        self.database = database
+    _instance = None  # Class attribute to hold the single instance
 
+    def __new__(cls, database, user, password, host='localhost'):
+        if cls._instance is None or not cls._same_instance_params(cls._instance, database, user, password, host):
+            cls._instance = super(Database, cls).__new__(cls)
+            cls._instance._initialize(database, user, password, host)
+        return cls._instance
+
+    @classmethod
+    def _same_instance_params(cls, instance, database, user, password, host):
+        # Check if the existing instance has the same constructor values
+        return (
+                instance.database == database and
+                instance.mysqlInterface._user == user and
+                instance.mysqlInterface._password == password and
+                instance.mysqlInterface._host == host
+        )
+
+    def _initialize(self, database, user, password, host):
+        self.database = database
         self.mysqlInterface = mysql.connector.connect(
             database = self.database,
             user = user,
@@ -29,7 +46,6 @@ class Database:
 
             try:
                 return cursor.fetchall()
-
             except:
                 self.mysqlInterface.commit()
                 return None
