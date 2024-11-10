@@ -1,5 +1,4 @@
 import requests
-from . import secret
 from os import environ
 
 # Spotify API constants
@@ -14,8 +13,12 @@ SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 # Spotify scopes needed to control playback
 SCOPE = 'user-modify-playback-state'  # user-read-playback-state
 
-
 class Authenticate:
+
+    __SPOTIFY_CLIENT_ID = environ.get('SPOTIFY_CLIENT_ID')
+    __SPOTIFY_CLIENT_SECRET = environ.get('SPOTIFY_CLIENT_SECRET')
+
+
     def __init__(self, code=None, access_token=None):
         if code:
             # Authenticate
@@ -23,8 +26,8 @@ class Authenticate:
                 'grant_type': 'authorization_code',
                 'code': code,
                 'redirect_uri': SPOTIFY_REDIRECT_URI,
-                'client_id': secret.SPOTIFY_CLIENT_ID,
-                'client_secret': secret.SPOTIFY_CLIENT_SECRET,
+                'client_id': self.__SPOTIFY_CLIENT_ID,
+                'client_secret': self.__SPOTIFY_CLIENT_SECRET,
             })
             auth_response_data = auth_response.json()
             self.__access_token = auth_response_data['access_token']
@@ -38,4 +41,4 @@ class Authenticate:
 
     @staticmethod
     def get_login_url():
-        return f"{SPOTIFY_AUTH_URL}?client_id={secret.SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={SPOTIFY_REDIRECT_URI}&scope={SCOPE}"
+        return f"{SPOTIFY_AUTH_URL}?client_id={Authenticate.__SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={SPOTIFY_REDIRECT_URI}&scope={SCOPE}"
