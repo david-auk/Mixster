@@ -1,6 +1,7 @@
 spotapi==1.1.0
 requests
 Celery
+waitress
 mysql-connector-python==8.0.32
 pymongo==4.10.1
 redis==5.2.0

@@ -24,12 +24,6 @@ class Database:
         if not self.mysqlInterface.is_connected():
             self.mysqlInterface.reconnect()
 
-        # (dirty) Fix INSERT None to NULL translation (to be itterated)
-        # if statement.upper().startswith('INSERT'):
-
-        #	statement = re.sub(r'\(None\b', '(NULL', statement) # Replace with null value if begins with
-        #	statement = re.sub(r',\s*None\b', ', NULL', statement) # Replace with null value if anywhere else
-
         with self.mysqlInterface.cursor(buffered = True) as cursor:
             cursor.execute(statement)
 

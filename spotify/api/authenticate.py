@@ -13,6 +13,7 @@ SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 # Spotify scopes needed to control playback
 SCOPE = 'user-modify-playback-state'  # user-read-playback-state
 
+
 class Authenticate:
 
     __SPOTIFY_CLIENT_ID = environ.get('SPOTIFY_CLIENT_ID')

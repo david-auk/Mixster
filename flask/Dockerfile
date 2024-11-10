@@ -13,8 +13,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Make port 5050 available to the world outside this container
 EXPOSE 5050
 
+# Demote to non root lever
+RUN useradd -ms /bin/bash nonrootuser
+USER nonrootuser
+
 # Define environment variable
 ENV FLASK_APP=app.py
 
 # Run the application
+#CMD ["waitress-serve", "--port=5050", "--call", "app:create_app"]
 CMD ["flask", "run", "--host=0.0.0.0", "--port=5050"]
