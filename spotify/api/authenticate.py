@@ -1,11 +1,11 @@
 import requests
 from . import secret
+from os import environ
 
 # Spotify API constants
 
-SPOTIFY_CALLBACK_SLUG = 'callback'
-
-SPOTIFY_REDIRECT_URI = f'http://127.0.0.1:5000/auth/{SPOTIFY_CALLBACK_SLUG}'  # Replace with your callback URL
+# Replace with your callback URL
+SPOTIFY_REDIRECT_URI = environ.get("SPOTIFY_CALLBACK_URL", "/callback")
 
 # Authorization URL for Spotify
 SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize'

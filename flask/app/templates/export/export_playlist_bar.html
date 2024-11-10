@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixster - Enter Playlist URL</title>
+    <style>
+        button {
+            align-self: center;
+        }
+    </style>
+</head>
+<body>
+    <button id="export" type="button" class="btn btn-outline-primary">Export</button>
+    <div class="progress">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 75%"></div>
+    </div>
+
+    <script>
+        const progressbar = document.querySelector('.progress-bar');
+        const progres = document.querySelector('.progress');
+        const export_button = document.getElementById('export')
+
+        export_button.addEventListener("click", () => {
+            fetch("/task/start", {method: "POST"})
+        })
+    </script>
+</body>
+</html>

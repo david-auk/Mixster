@@ -11,7 +11,7 @@ def login():
     return redirect(f"{login_url}&state={next_url}")
 
 
-@auth_bp.route(f'/{spotify.api.authenticate.SPOTIFY_CALLBACK_SLUG}')
+@auth_bp.route(f'/{spotify.api.authenticate.SPOTIFY_REDIRECT_URI.split("/")[-1]}')
 def callback():
 
     # Spotify redirects back to your callback with an authorization code

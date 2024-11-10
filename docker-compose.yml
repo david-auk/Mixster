@@ -4,29 +4,46 @@ services:
   flask:
     build:
       context: ./flask
+    container_name: flask
     ports:
       - "5050:5050"
     volumes:
       - ./flask:/app
       - ./spotify:/app/spotify
+      - ./mariadb:/app/mariadb
     depends_on:
       - redis
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      # Celery
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+
+      # Spotify
+      SPOTIFY_CALLBACK_URL: ${SPOTIFY_CALLBACK_URL}
+
+      # MariaDB
+      MYSQL_DATABASE: ${MYSQL_DATABASE_NAME}
+      MYSQL_USER: ${MYSQL_USER_NAME}
+      MYSQL_PASSWORD: ${MYSQL_USER_PASSWORD}
+      MYSQL_HOST: mariadb
     networks:
       - backend
       - frontend
 
-
-  celery:
+  celery: # TODO run as non root
     build:
-      context: ./celery
+      context: ./flask
+    command: celery -A app.celery_app worker --loglevel INFO
+    container_name: celery
+    volumes:
+      - ./flask:/app
+      - ./spotify:/app/spotify
+      - ./mariadb:/app/mariadb
     depends_on:
       - redis
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
     networks:
       - backend
 
@@ -37,6 +54,25 @@ services:
     networks:
       - backend
 
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE_NAME}
+      MYSQL_USER: ${MYSQL_USER_NAME}
+      MYSQL_PASSWORD: ${MYSQL_USER_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql      # Persistent storage for the database
+      - ./mixster.sql:/docker-entrypoint-initdb.d/init.sql
+    expose:
+      - "3306:3306"  # Expose port 3306 for database access
+    networks:
+      - backend
+
+volumes:
+  mariadb_data:
 
 networks:
   backend:
