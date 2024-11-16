@@ -62,7 +62,8 @@
     <script>
         const progress_bar = document.querySelector('.progress-bar');
         const progres = document.querySelector('.progress');
-        const export_button = document.getElementById('export')
+        const export_button = document.getElementById('export');
+        const song_info = document.querySelector('.current-song-info');
 
         const track_name_element = document.getElementById('track-name');
         const track_artist_element = document.getElementById('track-artist');
@@ -70,6 +71,10 @@
 
         // Get the json data about the playlist to export
         const playlist = JSON.parse('{{ playlist | tojson | safe }}');
+
+        // Hide the song info and progress bar until button is clicked
+        song_info.style.visibility = 'hidden';
+        progres.style.visibility = 'hidden';
 
         function updateProgressBar(percent) {
             if (percent === 0) {
@@ -82,22 +87,29 @@
             progres.setAttribute("aria-valuenow", percent);
         }
 
-        function updateLoadingText(info){// Update the current song information
-            console.log(info)
-            track_name_element.textContent = `Track Name: ${info.track_name}`;
-            track_artist_element.textContent = `Artist: ${info.track_artist}`;
-            time_left_estimate_element.textContent = `Time left: ${info.time_left_estimate}`
+        function updateLoadingText(data){
+            console.log(data)
+
+            track_name_element.textContent = `Track Name: ${data.track_name}`;
+            track_artist_element.textContent = `Artist: ${data.track_artist}`;
+            time_left_estimate_element.textContent = `Time left: ${data.time_left_estimate}`;
+        }
+
+        function isEmptyObject(obj){
+            return JSON.stringify(obj) === '{}'
         }
 
         export_button.addEventListener("click", () => {
             updateProgressBar(0);
+
+            song_info.style.visibility = 'visible';
+            progres.style.visibility = 'visible';
+
             export_button.setAttribute("disabled", "disabled");
 
             fetch("/export/start", {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(playlist)
             })
                 .then(responce => responce.json())
@@ -111,11 +123,12 @@
                             .then(response => response.json())
                             .then(result => {
                                 updateProgressBar(result.progress)
-                                if (result.progress_info) {
+                                if (!isEmptyObject(result.progress_info)){
                                     updateLoadingText(result.progress_info)
                                 }
                                 if (result.state === "SUCCESS") {
                                     clearInterval(interval);
+                                    time_left_estimate_element.textContent = "Time left: 0:00:0"
                                     export_button.removeAttribute("disabled");
                                 }
                                 if (result.state === "ERROR") {
