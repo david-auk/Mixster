@@ -1,5 +1,18 @@
+import re
 import requests
 from bs4 import BeautifulSoup
+import spotify.exeptions
+
+
+def extract_spotify_type_id(link):
+    # Use a regular expression to match the pattern
+    pattern = r"https://open\.spotify\.com/([^/]+)/([a-zA-Z0-9]+)"
+    match = re.match(pattern, link)
+
+    if match:
+        return match.groups()
+    else:
+        raise spotify.exeptions.URLError("Invalid Spotify URL")
 
 
 def build_soup(url: str):
