@@ -24,9 +24,7 @@ def export_playlist():
             playlist = Playlist(playlist_url)
         except spotify.exeptions.URLError as e:
             return f"URL error: {e}"
-        except spotify.exeptions.playlist.PrivatePlaylistException as e:
-            return f"Playlist is not public: {e}"  # If playlist is private
-        except spotify.exeptions.playlist.PublicPlaylistException as e:
+        except spotify.exeptions.PlaylistException as e:
             return f"Failed to pull playlist: {e}"  # If spotapi pull Fails
         except Exception as e:
             return f"Unexpected error while pulling playlist: {e}"  # Catch-all exception

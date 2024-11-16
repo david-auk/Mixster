@@ -20,7 +20,7 @@ class Playlist:
 
         # Validating
         if not self.__is_public(self.__soup):
-            raise spotify.exeptions.playlist.PublicPlaylistException("")
+            raise spotify.exeptions.PlaylistException("Playlist not public")
 
         # If the web gui had redirected, get new soup from that new uri
         if not self.__is_valid_soup(self.__soup):
@@ -42,7 +42,7 @@ class Playlist:
             rawdata = pub_list_obj.get_playlist_info(limit = self.length)
 
             if "errors" in rawdata:
-                raise spotify.exeptions.playlist.PublicPlaylistException(rawdata['errors'])
+                raise spotify.exeptions.PlaylistException(rawdata['errors'])
 
             self.items = rawdata['data']['playlistV2']['content']['items']
 
