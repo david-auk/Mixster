@@ -39,7 +39,7 @@ services:
     build:
       context: ./flask
     container_name: celery
-    command: celery -A app.celery_app worker --loglevel INFO
+    command: celery -A app.celery_app worker --loglevel=info
     volumes:
       - ./flask:/app
       - ./spotify:/app/spotify
@@ -101,6 +101,6 @@ volumes:
 
 networks:
   backend:
-    internal: true
+    internal: false
   frontend:
     internal: false

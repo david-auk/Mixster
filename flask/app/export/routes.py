@@ -1,4 +1,6 @@
 from flask import render_template, request
+
+from spotify import Playlist, exeptions
 from mariadb import Database
 from . import export_bp
 import spotify.api
@@ -15,20 +17,25 @@ if environ.get('MYSQL_DATABASE') is not None:
 
 @export_bp.route("/", methods = ["GET", "POST"])
 def export_playlist():
-    if request.method == "POST":
+    if request.method == "POST" and "playlist_url" in request.form:
         playlist_url = request.form.get("playlist_url")
-
         try:
-            playlist = spotify.Playlist(playlist_url)
-        except spotify.playlist.PrivatePlaylistException as e:
-            return f"Playlist is not public: {e}"  # If playlist is private
-        except spotify.playlist.PublicPlaylistException as e:
+            playlist = Playlist(playlist_url)
+        except spotify.exeptions.URLError as e:
+            return f"URL error: {e}"
+        except spotify.exeptions.PlaylistException as e:
             return f"Failed to pull playlist: {e}"  # If spotapi pull Fails
         except Exception as e:
-            return f"Failed to load playlist: {e}"  # Catch-all exception
+            return f"Unexpected error while pulling playlist: {e}"  # Catch-all exception
 
-        # Extract tracks from the playlist
-        for track_uri in playlist.get_items_uri():
-            track = spotify.Track(track_uri)  # This operation is slow
+        playlist_dict = {
+            'url': playlist.url,
+            'title': playlist.title,
+            'length': playlist.length,
+            'image_url': playlist.image_url,
+            'track_uris': playlist.get_items_uri()
+        }
+
+        return render_template("export/export_playlist_bar.html", playlist = playlist_dict)
 
     return render_template("export/export_playlist.html")
