@@ -14,6 +14,7 @@ class Playlist:
         if link_type != "playlist":
             raise spotify.exeptions.URLError(f"Invalid Spotify URL, expected 'playlist' but got '{link_type}'")
 
+        self.id = link_id
         self.url = playlist_url  # check with re for formatting issues
 
         self.__soup = utilities.build_soup(self.url)
@@ -98,3 +99,12 @@ class Playlist:
             track_uris.append(item_uri)
 
         return track_uris
+
+    def export_to_json(self):
+        return json.dumps({
+            'url': self.url,
+            'title': self.title,
+            'length': self.length,
+            'image_url': self.image_url,
+            'track_uris': self.get_items_uri()
+        })
