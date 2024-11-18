@@ -1,7 +1,7 @@
 from flask import request, jsonify
 
 from .cache import Cache
-from celery import shared_task, current_app
+from celery import shared_task
 from celery.result import AsyncResult
 from time import time
 from datetime import timedelta
@@ -21,47 +21,64 @@ def start():
 
 @export_bp.route("/api/stop", methods = ["POST"])
 def stop():
+
+    # Import inside function to combat circular import error
+    from .. import redis_client
+
     task_id = request.json.get("task_id")
     if not task_id:
         return jsonify({"error": "Task ID is required"}), 400
 
-    # Revoke the task
-    current_app.control.revoke(task_id, terminate = True)  # Terminate=True to forcefully kill the task
+    # Stop the task
+    status_key = f"task_status:{task_id}"
+    redis_client.set(status_key, "stop")
     return jsonify({"message": "Task has been canceled"}), 200
 
 
 @shared_task(bind = True)
 def build_track_objects(self, playlist_dict):
-    try:
-        Cache.add("celery_task_status", self.request.id, "WORKING")
-        self.update_state(state = "PROSESSING", meta = {'progress': 0})
-        increment = 100 / playlist_dict["length"]
-        runtimes = []
-        for index, track_uri in enumerate(playlist_dict["track_uris"]):
-            progress = increment * (index + 1)
-            start_time = time()
 
-            # Get the track object
-            track = Track(track_uri)
+    from .. import redis_client
 
-            # Do analytics
-            runtimes.append(time() - start_time)
-            avg_time = sum(runtimes) / len(runtimes)
-            time_left = round(avg_time * (playlist_dict["length"] - index))
-            time_left_string = str(timedelta(seconds = time_left))
+    task_id = self.request.id
+    status_key = f"task_status:{task_id}"
 
-            # Send status
-            self.update_state(state = "PROSESSING", meta = {
-                'progress': progress,
-                'progress_info': {
-                    'track_name': track.name,
-                    'track_artist': track.artist,
-                    'iteration': index,
-                    'time_left_estimate': time_left_string
-                }
-            })
-    except Exception as e:
-        return {"state": "ERROR", "error_msg": str(e)}
+    self.update_state(state = "PROSESSING", meta = {'progress': 0})
+    increment = 100 / playlist_dict["length"]
+    runtimes = []
+    stopping = False
+    for iteration, track_uri in enumerate(playlist_dict["track_uris"], 1):
+
+        user_input = redis_client.get(status_key)
+        if user_input and user_input.decode() == "stop":
+            stopping = True
+            break
+
+        progress = increment * iteration
+        start_time = time()
+
+        # Get the track object
+        track = Track(track_uri)
+
+        # Do analytics
+        runtimes.append(time() - start_time)
+        avg_time = sum(runtimes) / len(runtimes)
+        time_left = round(avg_time * (playlist_dict["length"] - iteration))
+        time_left_string = str(timedelta(seconds = time_left))
+
+        # Send status
+        self.update_state(state = "PROSESSING", meta = {
+            'progress': progress,
+            'progress_info': {
+                'track_name': track.name,
+                'track_artist': track.artist,
+                'iteration': iteration,
+                'time_left_estimate': time_left_string
+            }
+        })
+
+    if stopping:
+        return {"result": "Interrupted"}
 
     return {"result": "Task is done!", "progress": 100}
 
