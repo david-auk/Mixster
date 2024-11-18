@@ -44,7 +44,7 @@ def build_track_objects(self, playlist_dict):
     status_key = f"task_status:{task_id}"
 
     self.update_state(state = "PROSESSING", meta = {'progress': 0})
-    increment = 100 / playlist_dict["length"]
+    increment = 100 / playlist_dict["amount_of_tracks"]
     runtimes = []
     stopping = False
     for iteration, track_uri in enumerate(playlist_dict["track_uris"], 1):
@@ -63,7 +63,7 @@ def build_track_objects(self, playlist_dict):
         # Do analytics
         runtimes.append(time() - start_time)
         avg_time = sum(runtimes) / len(runtimes)
-        time_left = round(avg_time * (playlist_dict["length"] - iteration))
+        time_left = round(avg_time * (playlist_dict["amount_of_tracks"] - iteration))
         time_left_string = str(timedelta(seconds = time_left))
 
         # Send status
@@ -80,7 +80,15 @@ def build_track_objects(self, playlist_dict):
     if stopping:
         return {"result": "Interrupted"}
 
-    return {"result": "Task is done!", "progress": 100}
+    return {"result": "Task is done!",
+        "progress": 100,
+        'progress_info': {
+            'track_name': track.name,
+            'track_artist': track.artist,
+            'iteration': iteration,
+            'time_left_estimate': time_left_string
+        }
+    }
 
 
 @export_bp.route("/api/progress", methods = ["POST"])

@@ -37,7 +37,7 @@ def export_playlist():
         return render_template("export/export_playlist_bar.html",
                                playlist_title = playlist.title,
                                image_url = playlist.image_url,
-                               playlist_length = playlist.length,
+                               playlist_amount_of_tracks = playlist.amount_of_tracks,
                                playlist_id = playlist.id)
 
     return render_template("export/export_playlist.html")
