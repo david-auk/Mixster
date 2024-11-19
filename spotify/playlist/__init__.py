@@ -14,6 +14,7 @@ class Playlist:
         if link_type != "playlist":
             raise spotify.exeptions.URLError(f"Invalid Spotify URL, expected 'playlist' but got '{link_type}'")
 
+        self.id = link_id
         self.url = playlist_url  # check with re for formatting issues
 
         self.__soup = utilities.build_soup(self.url)
@@ -27,19 +28,19 @@ class Playlist:
             self.__soup = self.__renew_soup_from_redirecturl(self.__soup)
 
         # Getting vars
-        self.length = self.__get_playlist_length(self.__soup)
+        self.amount_of_tracks = self.__get_playlist_amount_of_tracks(self.__soup)
         self.title = self.__soup.find("meta", property = "og:title")["content"]
         self.image_url = self.__soup.find("meta", property = "og:image")["content"]
 
         pub_list_obj = PublicPlaylist(self.url)
 
         # Check if the playlist is small enough for a direct get_playlist_info method call
-        if self.length > 343:
+        if self.amount_of_tracks > 343:
             self.items = []
             for page in pub_list_obj.paginate_playlist():
                 self.items += page['items']
         else:
-            rawdata = pub_list_obj.get_playlist_info(limit = self.length)
+            rawdata = pub_list_obj.get_playlist_info(limit = self.amount_of_tracks)
 
             if "errors" in rawdata:
                 raise spotify.exeptions.PlaylistException(rawdata['errors'])
@@ -84,7 +85,7 @@ class Playlist:
             raise Exception("Redirect url not found")
 
     @staticmethod
-    def __get_playlist_length(soup: utilities.BeautifulSoup):
+    def __get_playlist_amount_of_tracks(soup: utilities.BeautifulSoup):
         result = soup.find("meta", attrs = {"name": "music:song_count"})
         if result:
             return int(result['content'])
@@ -98,3 +99,12 @@ class Playlist:
             track_uris.append(item_uri)
 
         return track_uris
+
+    def export_to_json(self):
+        return json.dumps({
+            'url': self.url,
+            'title': self.title,
+            'amount_of_tracks': self.amount_of_tracks,
+            'image_url': self.image_url,
+            'track_uris': self.get_items_uri()
+        })

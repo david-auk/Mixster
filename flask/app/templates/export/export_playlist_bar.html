@@ -32,25 +32,33 @@
             margin-top: 20px;
         }
 
-        button {
-            align-self: center;
+        .button-container {
+            display: flex; /* Use flexbox for layout */
+            justify-content: center; /* Center items horizontally */
+            gap: 10px; /* Space between the buttons */
+            margin-top: 20px; /* Optional: Add margin on top for spacing */
         }
     </style>
 </head>
 <body>
     <!-- Playlist Preview -->
     <div class="playlist-preview">
-        <h1>{{ playlist.title }}</h1>
-        <img src="{{ playlist.image_url }}" alt="Playlist Image" class="playlist-image" style="max-width: 100px; height: auto;">
-        <p>Total Tracks: {{ playlist.length }}</p>
+        <h1>{{ playlist_title }}</h1>
+        <img src="{{ image_url }}" alt="Playlist Image" class="playlist-image" style="max-width: 100px; height: auto;">
+        <p id="total_tracks">Total Tracks: N/A</p>
+        <p id="total_pages">Total Pages: N/A</p>
     </div>
 
-    <!-- Export Button and Progress Bar -->
-    <button id="export" type="submit" class="btn btn-outline-primary">Export</button>
+    <!-- Buttons -->
+    <div class="button-container">
+        <button id="export_btn" type="submit" class="btn btn-outline-primary">Export</button>
+        <button id="stop_btn" type="submit" class="btn btn-outline-danger">Stop</button>
+    </div>
+
+    <!-- Progress Bar -->
     <div class="progress">
         <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
     </div>
-
     <!-- Current Song Info -->
     <div class="current-song-info">
         <h3>Current Track:</h3>
@@ -62,19 +70,29 @@
     <script>
         const progress_bar = document.querySelector('.progress-bar');
         const progres = document.querySelector('.progress');
-        const export_button = document.getElementById('export');
+        const export_button = document.getElementById('export_btn');
+        const stop_button = document.getElementById('stop_btn');
+
+        const total_tracks_text = document.getElementById('total_tracks');
+        const total_tracks_value = "{{ playlist_amount_of_tracks }}"
+        total_tracks_text.textContent = `Total Tracks: ${total_tracks_value}`
+
         const song_info = document.querySelector('.current-song-info');
 
         const track_name_element = document.getElementById('track-name');
         const track_artist_element = document.getElementById('track-artist');
         const time_left_estimate_element = document.getElementById('time-left-estimate');
 
-        // Get the json data about the playlist to export
-        const playlist = JSON.parse('{{ playlist | tojson | safe }}');
-
         // Hide the song info and progress bar until button is clicked
+        //stop_button.style.visibility = 'hidden';
+        stop_button.style.display = 'none';
+
         song_info.style.visibility = 'hidden';
         progres.style.visibility = 'hidden';
+
+        // Get the json data about the playlist to export
+        //const playlist = JSON.parse(' playlist | tojson | safe ');
+        const playlist_id = '{{ playlist_id }}'
 
         function updateProgressBar(percent) {
             if (percent === 0) {
@@ -87,59 +105,121 @@
             progres.setAttribute("aria-valuenow", percent);
         }
 
-        function updateLoadingText(data){
+        function updateLoadingText(data) {
             console.log(data)
+
+            // TODO - Add iteration
 
             track_name_element.textContent = `Track Name: ${data.track_name}`;
             track_artist_element.textContent = `Artist: ${data.track_artist}`;
             time_left_estimate_element.textContent = `Time left: ${data.time_left_estimate}`;
-        }
 
+            if (data.iteration === 0) {
+                // First iteration
+
+                total_tracks_text.textContent = `Total Tracks: ${total_tracks_value}`
+            } else {
+                if (data.iteration === total_tracks_value){
+                    //Final iteration
+
+                    time_left_estimate_element.textContent = "Time left: 0:00:00"
+                } else {
+                    total_tracks_text.textContent = `Total Tracks: (${data.iteration}/${total_tracks_value})`
+                }
+            }
+        }
         function isEmptyObject(obj){
             return JSON.stringify(obj) === '{}'
         }
 
-        export_button.addEventListener("click", () => {
-            updateProgressBar(0);
-
-            song_info.style.visibility = 'visible';
-            progres.style.visibility = 'visible';
-
-            export_button.setAttribute("disabled", "disabled");
-
-            fetch("/export/start", {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(playlist)
+        fetch("/export/api/cache", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                attribute: 'playlist_obj',
+                key: playlist_id,
+                get_output_method: 'export_to_json'
             })
-                .then(responce => responce.json())
-                .then(data => {
-                    let interval = setInterval(() => {
-                        fetch("/export/progress", {
-                            method: "POST",
-                            headers: {"Content-Type": "application/json"},
-                            body: JSON.stringify({task_id: data.task_id})
-                        })
-                            .then(response => response.json())
-                            .then(result => {
-                                updateProgressBar(result.progress)
-                                if (!isEmptyObject(result.progress_info)){
-                                    updateLoadingText(result.progress_info)
-                                }
-                                if (result.state === "SUCCESS") {
-                                    clearInterval(interval);
-                                    time_left_estimate_element.textContent = "Time left: 0:00:0"
-                                    export_button.removeAttribute("disabled");
-                                }
-                                if (result.state === "ERROR") {
-                                    clearInterval(interval);
-                                    alert(`An error occurred during export.\nError message: ${result.error_msg}`);
-                                    window.location.href = "/export";
-                                }
-                            })
-                    }, 500) // Check every 1/2 of a second
-                })
         })
+            .then(response => response.json())
+            .then(playlist_data => {
+
+                export_button.addEventListener("click", () => {
+                updateProgressBar(0);
+
+                song_info.style.visibility = 'visible';
+                progres.style.visibility = 'visible';
+
+                export_button.setAttribute("disabled", "disabled");
+
+                fetch("/export/api/start", {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(playlist_data)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        let interval = setInterval(() => {
+                            fetch("/export/api/progress", {
+                                method: "POST",
+                                headers: {"Content-Type": "application/json"},
+                                body: JSON.stringify({task_id: data.task_id})
+                            })
+                                .then(response => response.json())
+                                .then(result => {
+                                    if (result.state === "ERROR") {
+                                        clearInterval(interval);
+                                        alert(`An error occurred during export.\nError message: ${result.error_msg}`);
+                                        window.location.href = "/export";
+                                    }else {
+                                        updateProgressBar(result.progress)
+                                        if (!isEmptyObject(result.progress_info)) {
+                                            updateLoadingText(result.progress_info)
+                                        }
+                                        if (result.state === "SUCCESS") {
+                                            clearInterval(interval);
+                                            fetch("/export/api/progress", {
+                                                method: "POST",
+                                                headers: {"Content-Type": "application/json"},
+                                                body: JSON.stringify({task_id: data.task_id})
+                                            })
+                                                .then(response => response.json())
+                                                .then(result => {
+                                                    updateLoadingText(result.progress_info)
+                                                })
+                                            export_button.removeAttribute("disabled");
+                                            stop_button.style.display = 'none';
+                                        }
+                                    }
+                                })
+                        }, 500) // Check every 1/2 of a second
+                        stop_button.style.display = 'inline-block';
+                        stop_button.addEventListener("click", () => {
+                            // Stop backend
+                            fetch("/export/api/stop", {
+                                method: "POST",
+                                headers: {"Content-Type": "application/json"},
+                                body: JSON.stringify({task_id: data.task_id})
+                            })
+                            clearInterval(interval);
+
+                            // Stop frontend
+                            song_info.style.visibility = 'hidden';
+                            progres.style.visibility = 'hidden';
+                            updateProgressBar(0);
+                            export_button.removeAttribute("disabled");
+                            stop_button.style.display = 'none';
+
+                            data.track_name = "N/A";
+                            data.track_artist = "N/A";
+                            data.time_left_estimate = "N/A";
+                            data.iteration = 0;
+
+                            updateLoadingText(data)
+                        })
+                    })
+                })
+            })
     </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 from flask import render_template, request
-
+from .cache import Cache
 from spotify import Playlist, exeptions
 from mariadb import Database
 from . import export_bp
@@ -28,14 +28,16 @@ def export_playlist():
         except Exception as e:
             return f"Unexpected error while pulling playlist: {e}"  # Catch-all exception
 
-        playlist_dict = {
-            'url': playlist.url,
-            'title': playlist.title,
-            'length': playlist.length,
-            'image_url': playlist.image_url,
-            'track_uris': playlist.get_items_uri()
-        }
+        # Add the playlist to the cache, so it can be reused dynamically
+        if Cache.has_key('playlist_obj', playlist.id):
+            Cache.remove('playlist_obj', playlist.id)
 
-        return render_template("export/export_playlist_bar.html", playlist = playlist_dict)
+        Cache.add('playlist_obj', playlist.id, playlist)
+
+        return render_template("export/export_playlist_bar.html",
+                               playlist_title = playlist.title,
+                               image_url = playlist.image_url,
+                               playlist_amount_of_tracks = playlist.amount_of_tracks,
+                               playlist_id = playlist.id)
 
     return render_template("export/export_playlist.html")
