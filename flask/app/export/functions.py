@@ -73,15 +73,14 @@ def build_track_objects(self, playlist_dict):
 
         # Send status
         self.update_state(state = "PROSESSING", meta = {
-            'task': 'scrape',
             'progress': progress,
             'progress_info': {
+                'task_description': 'Scraping Spotify for track info',
                 'track_name': track.name,
                 'track_artist': track.artist,
                 'iteration': iteration,
                 'time_left_estimate': time_left_string
-            },
-            'task_description': 'Scraping Spotify for track info'
+            }
         })
 
     if stopping:
@@ -92,16 +91,15 @@ def build_track_objects(self, playlist_dict):
     pdf = PDF(tracks, {'font_path': environ.get("FONT_PATH")})
 
     # Send status
-    self.update_state(state = "PROSESSING", meta = {
-        'task': 'export',
+    self.update_state(state = "EXPORTING", meta = {
         'progress': 100,
         'progress_info': {
+            'task_description': 'Exporting track info to PDF',
             'track_name': track.name,
             'track_artist': track.artist,
             'iteration': playlist_dict["amount_of_tracks"],
             'time_left_estimate': "0:00:00"
-        },
-        'task_description': 'Exporting track info to PDF'
+        }
     })
 
     pdf.export(pdf_output_path)
@@ -109,12 +107,12 @@ def build_track_objects(self, playlist_dict):
     return {
             'progress': 100,
             'progress_info': {
+                'task_description': 'Ready to Download',
                 'track_name': track.name,
                 'track_artist': track.artist,
                 'iteration': playlist_dict["amount_of_tracks"],
                 'time_left_estimate': "0:00:00"
-            },
-            'task_description': 'Ready for export'
+            }
     }
 
 

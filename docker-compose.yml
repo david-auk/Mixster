@@ -31,6 +31,8 @@ services:
       MYSQL_USER: ${MYSQL_USER_NAME}
       MYSQL_PASSWORD: ${MYSQL_USER_PASSWORD}
       MYSQL_HOST: mariadb
+
+      FONT_PATH: "/usr/share/fonts/truetype/msttcorefonts/Arial.TTF"
     networks:
       - backend
       - frontend
@@ -50,6 +52,7 @@ services:
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
+      FONT_PATH: "/usr/share/fonts/truetype/msttcorefonts/Arial.TTF"
     healthcheck:
       test: [ "CMD", "celery", "-A", "app.celery_app", "status" ]
       interval: 30s

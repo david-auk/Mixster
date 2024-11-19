@@ -177,7 +177,10 @@
                                         if (!isEmptyObject(result.progress_info)) {
                                             updateLoadingText(result.progress_info)
                                         }
-                                        if (result.state === "SUCCESS") {
+                                        if (result.state === "EXPORTING"){
+                                            // All the data is scraped
+                                            stop_button.style.display = 'none';
+                                        } else if (result.state === "SUCCESS") {
                                             clearInterval(interval);
                                             fetch("/export/api/progress", {
                                                 method: "POST",
@@ -188,8 +191,14 @@
                                                 .then(result => {
                                                     updateLoadingText(result.progress_info)
                                                 })
-                                            export_button.removeAttribute("disabled");
+
+                                            // Hide buttons
+                                            export_button.style.display = 'none';
                                             stop_button.style.display = 'none';
+                                            export_button.removeAttribute("disabled");
+
+                                            // Show Download button
+                                            download_button.style.display = 'inline-block';
                                         }
                                     }
                                 })

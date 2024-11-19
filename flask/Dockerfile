@@ -19,8 +19,6 @@ RUN apt-get update && apt-get install -y \
 # Clean up
 RUN rm -rf /tmp/arial32.exe
 
-# Export
-Export FONT_PATH = "/usr/share/fonts/truetype/msttcorefonts/Arial.TTF"
 # Set the working directory in the container
 WORKDIR /app
 
