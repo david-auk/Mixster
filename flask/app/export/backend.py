@@ -1,5 +1,3 @@
-import os
-
 from fpdf import FPDF
 from spotify import Track
 from PIL import Image, ImageDraw, ImageFont
@@ -15,7 +13,9 @@ class TrackLabel:
             'artist': self.track.artist,
             'date': self.track.release_date[:4]  # Just get the year
         }
-        self.style = style if style is not None else {}
+        self.style = style if style is not None else {
+            'font_path': 'Arial.ttf'
+        }
 
     @staticmethod
     def __adjust_font_size(text, max_width, base_font_size, font_path):
@@ -69,7 +69,7 @@ class TrackLabel:
         draw = ImageDraw.Draw(image)
 
         # Load fonts
-        font_path = "Arial.ttf"  # Adjust to the correct path to your font file
+        font_path = self.style['font_path']  # Adjust to the correct path to your font file
         base_font_size = 80
         large_font = ImageFont.truetype(font_path, 160)
 
@@ -175,9 +175,17 @@ class PDF:
             pages = 2  # Always at least two pages for a qr and a tracklist
         return pages
 
-    def __init__(self, track_list: list[Track]):
+    def __init__(self, track_list: list[Track], style: dict):
         self.pdf = FPDF(orientation = 'P', unit = 'mm', format = 'A4')
         self.track_list = track_list
+
+        # Style linting here.
+        if not "font_path" in style:
+            raise RuntimeError("Font path not found in style")
+
+
+
+        self.style = style
 
     def export(self, output_path):
         total_tracks = len(self.track_list)
@@ -201,7 +209,7 @@ class PDF:
 
                 # Create and place the TrackLabel image
                 track = self.track_list[track_index]
-                track_label = TrackLabel(track)
+                track_label = TrackLabel(track, style = self.style)
                 track_label_image = track_label.export()
                 self.pdf.image(track_label_image, x = x, y = y, w = PDF.label_width, h = PDF.label_height)
 

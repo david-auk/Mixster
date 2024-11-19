@@ -7,8 +7,12 @@ from time import time
 from datetime import timedelta
 from . import export_bp
 import json
+from os import environ
+
+from .backend import PDF
 
 from spotify import Track
+
 
 @export_bp.route("/api/start", methods = ["POST"])
 def start():
@@ -19,9 +23,9 @@ def start():
     task = build_track_objects.delay(data)
     return {"task_id": task.id}
 
+
 @export_bp.route("/api/stop", methods = ["POST"])
 def stop():
-
     # Import inside function to combat circular import error
     from .. import redis_client
 
@@ -37,7 +41,6 @@ def stop():
 
 @shared_task(bind = True)
 def build_track_objects(self, playlist_dict):
-
     from .. import redis_client
 
     task_id = self.request.id
@@ -46,6 +49,7 @@ def build_track_objects(self, playlist_dict):
     self.update_state(state = "PROSESSING", meta = {'progress': 0})
     increment = 100 / playlist_dict["amount_of_tracks"]
     runtimes = []
+    tracks = []
     stopping = False
     for iteration, track_uri in enumerate(playlist_dict["track_uris"], 1):
 
@@ -59,6 +63,7 @@ def build_track_objects(self, playlist_dict):
 
         # Get the track object
         track = Track(track_uri)
+        tracks.append(track)
 
         # Do analytics
         runtimes.append(time() - start_time)
@@ -68,26 +73,48 @@ def build_track_objects(self, playlist_dict):
 
         # Send status
         self.update_state(state = "PROSESSING", meta = {
+            'task': 'scrape',
             'progress': progress,
             'progress_info': {
                 'track_name': track.name,
                 'track_artist': track.artist,
                 'iteration': iteration,
                 'time_left_estimate': time_left_string
-            }
+            },
+            'task_description': 'Scraping Spotify for track info'
         })
 
     if stopping:
         return {"result": "Interrupted"}
 
-    return {"result": "Task is done!",
-        "progress": 100,
+    # Generate a pdf with the playlist, track_info.
+    pdf_output_path = "/tmp/playlist.pdf"
+    pdf = PDF(tracks, {'font_path': environ.get("FONT_PATH")})
+
+    # Send status
+    self.update_state(state = "PROSESSING", meta = {
+        'task': 'export',
+        'progress': 100,
         'progress_info': {
             'track_name': track.name,
             'track_artist': track.artist,
-            'iteration': iteration,
-            'time_left_estimate': time_left_string
-        }
+            'iteration': playlist_dict["amount_of_tracks"],
+            'time_left_estimate': "0:00:00"
+        },
+        'task_description': 'Exporting track info to PDF'
+    })
+
+    pdf.export(pdf_output_path)
+
+    return {
+            'progress': 100,
+            'progress_info': {
+                'track_name': track.name,
+                'track_artist': track.artist,
+                'iteration': playlist_dict["amount_of_tracks"],
+                'time_left_estimate': "0:00:00"
+            },
+            'task_description': 'Ready for export'
     }
 
 

@@ -52,6 +52,7 @@
     <!-- Buttons -->
     <div class="button-container">
         <button id="export_btn" type="submit" class="btn btn-outline-primary">Export</button>
+        <button id="download_btn" type="submit" class="btn btn-outline-primary">Download</button>
         <button id="stop_btn" type="submit" class="btn btn-outline-danger">Stop</button>
     </div>
 
@@ -72,6 +73,7 @@
         const progres = document.querySelector('.progress');
         const export_button = document.getElementById('export_btn');
         const stop_button = document.getElementById('stop_btn');
+        const download_button = document.getElementById('download_btn');
 
         const total_tracks_text = document.getElementById('total_tracks');
         const total_tracks_value = "{{ playlist_amount_of_tracks }}"
@@ -86,6 +88,7 @@
         // Hide the song info and progress bar until button is clicked
         //stop_button.style.visibility = 'hidden';
         stop_button.style.display = 'none';
+        download_button.style.display = 'none';
 
         song_info.style.visibility = 'hidden';
         progres.style.visibility = 'hidden';
@@ -116,16 +119,13 @@
 
             if (data.iteration === 0) {
                 // First iteration
-
                 total_tracks_text.textContent = `Total Tracks: ${total_tracks_value}`
             } else {
                 if (data.iteration === total_tracks_value){
                     //Final iteration
-
                     time_left_estimate_element.textContent = "Time left: 0:00:00"
-                } else {
-                    total_tracks_text.textContent = `Total Tracks: (${data.iteration}/${total_tracks_value})`
                 }
+                total_tracks_text.textContent = `Total Tracks: (${data.iteration}/${total_tracks_value})`
             }
         }
         function isEmptyObject(obj){
@@ -172,6 +172,7 @@
                                         alert(`An error occurred during export.\nError message: ${result.error_msg}`);
                                         window.location.href = "/export";
                                     }else {
+                                        console.log(result)
                                         updateProgressBar(result.progress)
                                         if (!isEmptyObject(result.progress_info)) {
                                             updateLoadingText(result.progress_info)
