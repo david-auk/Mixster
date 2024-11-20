@@ -51,6 +51,21 @@ def build_track_objects(self, playlist_dict):
     runtimes = []
     tracks = []
     stopping = False
+
+    total_pages = PDF.get_total_pages(len(playlist_dict["track_uris"]))
+
+    meta = {
+        'progress': 0,
+        'progress_info': {
+            'task_description': 'Scraping Spotify for track info',
+            'track_name': "N/A",
+            'track_artist': "N/A",
+            'iteration': 0,
+            'time_left_estimate': "N/A",
+            'total_pages': str(total_pages)
+        }
+    }
+
     for iteration, track_uri in enumerate(playlist_dict["track_uris"], 1):
 
         user_input = redis_client.get(status_key)
@@ -71,49 +86,39 @@ def build_track_objects(self, playlist_dict):
         time_left = round(avg_time * (playlist_dict["amount_of_tracks"] - iteration))
         time_left_string = str(timedelta(seconds = time_left))
 
+        # Update status
+        meta['progress'] = progress
+        meta['progress_info']['track_name'] = track.name
+        meta['progress_info']['track_artist'] = track.artist
+        meta['progress_info']['iteration'] = iteration
+        meta['progress_info']['time_left_estimate'] = time_left_string
+
         # Send status
-        self.update_state(state = "PROSESSING", meta = {
-            'progress': progress,
-            'progress_info': {
-                'task_description': 'Scraping Spotify for track info',
-                'track_name': track.name,
-                'track_artist': track.artist,
-                'iteration': iteration,
-                'time_left_estimate': time_left_string
-            }
-        })
+        self.update_state(state = "PROSESSING", meta = meta)
 
     if stopping:
         return {"result": "Interrupted"}
 
+    meta['progress_info']['task_description'] = "Exporting data to PDF"
+
     # Generate a pdf with the playlist, track_info.
     pdf_output_path = "/tmp/playlist.pdf"
-    pdf = PDF(tracks, {'font_path': environ.get("FONT_PATH")})
+    pdf = PDF(tracks, {'font_path': environ.get("FONT_PATH")},
+              redis_client=redis_client,
+              status_key=status_key,
+              update_method=self.update_state,
+              meta=meta)
 
-    # Send status
-    self.update_state(state = "EXPORTING", meta = {
-        'progress': 100,
-        'progress_info': {
-            'task_description': 'Exporting track info to PDF',
-            'track_name': track.name,
-            'track_artist': track.artist,
-            'iteration': playlist_dict["amount_of_tracks"],
-            'time_left_estimate': "0:00:00"
-        }
-    })
+    result = pdf.export(pdf_output_path)
 
-    pdf.export(pdf_output_path)
+    if result == "USER_EXIT":
+        return {"result": "Interrupted"}
+    else:
 
-    return {
-            'progress': 100,
-            'progress_info': {
-                'task_description': 'Ready to Download',
-                'track_name': track.name,
-                'track_artist': track.artist,
-                'iteration': playlist_dict["amount_of_tracks"],
-                'time_left_estimate': "0:00:00"
-            }
-    }
+        meta['progress_info']['task_description'] = "Ready to Download"
+        meta['progress_info']['total_pages'] = f"({total_pages}/{total_pages})"
+
+        return meta
 
 
 @export_bp.route("/api/progress", methods = ["POST"])

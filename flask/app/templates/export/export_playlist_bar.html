@@ -47,7 +47,11 @@
         <img src="{{ image_url }}" alt="Playlist Image" class="playlist-image" style="max-width: 100px; height: auto;">
         <p id="total_tracks">Total Tracks: N/A</p>
         <p id="total_pages">Total Pages: N/A</p>
+
+        <h4 id="status" style="min-height: 30px;"></h4>
     </div>
+
+
 
     <!-- Buttons -->
     <div class="button-container">
@@ -75,9 +79,13 @@
         const stop_button = document.getElementById('stop_btn');
         const download_button = document.getElementById('download_btn');
 
+        const status_text = document.getElementById('status');
         const total_tracks_text = document.getElementById('total_tracks');
-        const total_tracks_value = "{{ playlist_amount_of_tracks }}"
-        total_tracks_text.textContent = `Total Tracks: ${total_tracks_value}`
+        const total_pages_text = document.getElementById('total_pages');
+        const total_tracks_value = "{{ playlist_amount_of_tracks }}";
+        total_tracks_text.textContent = `Total Tracks: ${total_tracks_value}`;
+        const total_pages_value = "{{ total_pages }}";
+        total_pages_text.textContent = `Total Pages: ${total_pages_value}`;
 
         const song_info = document.querySelector('.current-song-info');
 
@@ -109,14 +117,14 @@
         }
 
         function updateLoadingText(data) {
-            console.log(data)
-
-            // TODO - Add iteration
 
             track_name_element.textContent = `Track Name: ${data.track_name}`;
             track_artist_element.textContent = `Artist: ${data.track_artist}`;
             time_left_estimate_element.textContent = `Time left: ${data.time_left_estimate}`;
+            total_pages_text.textContent = `Total Pages: ${data.total_pages}`
 
+            // Show status and un-hide if it is hidden
+            status_text.textContent = data.task_description
             if (data.iteration === 0) {
                 // First iteration
                 total_tracks_text.textContent = `Total Tracks: ${total_tracks_value}`
@@ -172,14 +180,13 @@
                                         alert(`An error occurred during export.\nError message: ${result.error_msg}`);
                                         window.location.href = "/export";
                                     }else {
-                                        console.log(result)
                                         updateProgressBar(result.progress)
                                         if (!isEmptyObject(result.progress_info)) {
                                             updateLoadingText(result.progress_info)
                                         }
                                         if (result.state === "EXPORTING"){
                                             // All the data is scraped
-                                            stop_button.style.display = 'none';
+                                            //stop_button.style.display = 'none';
                                         } else if (result.state === "SUCCESS") {
                                             clearInterval(interval);
                                             fetch("/export/api/progress", {
@@ -223,7 +230,9 @@
                             data.track_name = "N/A";
                             data.track_artist = "N/A";
                             data.time_left_estimate = "N/A";
+                            data.total_pages = total_pages_value;
                             data.iteration = 0;
+                            data.task_description = "";
 
                             updateLoadingText(data)
                         })

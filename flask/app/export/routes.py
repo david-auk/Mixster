@@ -1,4 +1,6 @@
 from flask import render_template, request
+
+from .backend import PDF
 from .cache import Cache
 from spotify import Playlist, exeptions
 from mariadb import Database
@@ -38,6 +40,7 @@ def export_playlist():
                                playlist_title = playlist.title,
                                image_url = playlist.image_url,
                                playlist_amount_of_tracks = playlist.amount_of_tracks,
-                               playlist_id = playlist.id)
+                               playlist_id = playlist.id,
+                               total_pages = PDF.get_total_pages(playlist.amount_of_tracks))
 
     return render_template("export/export_playlist.html")

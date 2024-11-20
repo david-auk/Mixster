@@ -175,28 +175,66 @@ class PDF:
             pages = 2  # Always at least two pages for a qr and a tracklist
         return pages
 
-    def __init__(self, track_list: list[Track], style: dict):
+    def __init__(self, track_list: list[Track], style: dict, redis_client=None, status_key=None, update_method=None, meta: dict = None):
         self.pdf = FPDF(orientation = 'P', unit = 'mm', format = 'A4')
         self.track_list = track_list
+        self.total_pages = self.get_total_pages(len(track_list))
 
         # Style linting here.
         if not "font_path" in style:
             raise RuntimeError("Font path not found in style")
 
+        if update_method is not None and meta is None:
+            raise RuntimeError("Update method received but no meta was given.")
 
+        self.update_method = update_method
+        self.meta = meta
+
+        if redis_client is not None and status_key is None:
+            raise RuntimeError("redis_client received but no status_key was given.")
+
+        self.redis_client = redis_client
+        self.status_key = status_key
 
         self.style = style
 
     def export(self, output_path):
+
+        page_count = 0
+
+        def update(page_count):
+            if self.update_method is not None:
+                progress = 100 / self.total_pages * page_count
+
+                self.meta['progress'] = progress
+                self.meta['progress_info']['total_pages'] = f"({page_count}/{self.total_pages})"
+
+                self.update_method(state = "EXPORTING", meta = self.meta)
+
+        def user_exit():
+            if self.redis_client is None:
+                return False
+
+            user_input = self.redis_client.get(self.status_key)
+            if user_input and user_input.decode() == "stop":
+                return True
+            return False
+
         total_tracks = len(self.track_list)
         tracks_per_page = self.labels_per_row * self.labels_per_column
 
         for i in range(0, total_tracks, tracks_per_page):
             # Add a page for TrackLabels
             self.pdf.add_page()
+            page_count += 1
+            update(page_count)
 
             # Arrange TrackLabels on the page
             for index in range(tracks_per_page):
+
+                if user_exit():
+                    return "USER_EXIT"
+
                 track_index = i + index
                 if track_index >= total_tracks:
                     break  # No more tracks to add
@@ -215,9 +253,15 @@ class PDF:
 
             # Add a page for QR codes
             self.pdf.add_page()
+            page_count += 1
+            update(page_count)
 
             # Arrange QR codes on the page in a mirrored way
             for index in range(tracks_per_page):
+
+                if user_exit():
+                    return "USER_EXIT"
+
                 track_index = i + index
                 if track_index >= total_tracks:
                     break  # No more tracks to add
@@ -236,3 +280,5 @@ class PDF:
         # Save the PDF to the specified output path
         self.pdf.output(output_path)
         print(f"PDF file exported to {output_path}")
+
+        return "FINISHED"
