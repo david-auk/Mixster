@@ -6,8 +6,8 @@ class Track:
 
     def __init__(self, track_uri):
         # Extract track ID from the URI in the format spotify:track:<track_id>
-        self.track_id = track_uri.split(":")[-1]
-        self.url = f"https://open.spotify.com/track/{self.track_id}"
+        self.id = track_uri.split(":")[-1]
+        self.url = f"https://open.spotify.com/track/{self.id}"
 
         pull_tries = 5
         for attempt in range(pull_tries):

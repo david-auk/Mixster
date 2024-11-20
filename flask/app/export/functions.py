@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, send_from_directory
 
 from .cache import Cache
 from celery import shared_task
@@ -7,8 +7,12 @@ from time import time
 from datetime import timedelta
 from . import export_bp
 import json
+from os import environ
+
+from .backend import PDF
 
 from spotify import Track
+
 
 @export_bp.route("/api/start", methods = ["POST"])
 def start():
@@ -19,9 +23,9 @@ def start():
     task = build_track_objects.delay(data)
     return {"task_id": task.id}
 
+
 @export_bp.route("/api/stop", methods = ["POST"])
 def stop():
-
     # Import inside function to combat circular import error
     from .. import redis_client
 
@@ -37,7 +41,6 @@ def stop():
 
 @shared_task(bind = True)
 def build_track_objects(self, playlist_dict):
-
     from .. import redis_client
 
     task_id = self.request.id
@@ -46,7 +49,23 @@ def build_track_objects(self, playlist_dict):
     self.update_state(state = "PROSESSING", meta = {'progress': 0})
     increment = 100 / playlist_dict["amount_of_tracks"]
     runtimes = []
+    tracks = []
     stopping = False
+
+    total_pages = PDF.get_total_pages(len(playlist_dict["track_uris"]))
+
+    meta = {
+        'progress': 0,
+        'progress_info': {
+            'task_description': 'Scraping Spotify for track info',
+            'track_name': "N/A",
+            'track_artist': "N/A",
+            'iteration': 0,
+            'time_left_estimate': "N/A",
+            'total_pages': str(total_pages)
+        }
+    }
+
     for iteration, track_uri in enumerate(playlist_dict["track_uris"], 1):
 
         user_input = redis_client.get(status_key)
@@ -59,6 +78,7 @@ def build_track_objects(self, playlist_dict):
 
         # Get the track object
         track = Track(track_uri)
+        tracks.append(track)
 
         # Do analytics
         runtimes.append(time() - start_time)
@@ -66,30 +86,48 @@ def build_track_objects(self, playlist_dict):
         time_left = round(avg_time * (playlist_dict["amount_of_tracks"] - iteration))
         time_left_string = str(timedelta(seconds = time_left))
 
+        # Update status
+        meta['progress'] = progress
+        meta['progress_info']['track_name'] = track.name
+        meta['progress_info']['track_artist'] = track.artist
+        meta['progress_info']['iteration'] = iteration
+        meta['progress_info']['time_left_estimate'] = time_left_string
+
         # Send status
-        self.update_state(state = "PROSESSING", meta = {
-            'progress': progress,
-            'progress_info': {
-                'track_name': track.name,
-                'track_artist': track.artist,
-                'iteration': iteration,
-                'time_left_estimate': time_left_string
-            }
-        })
+        self.update_state(state = "PROSESSING", meta = meta)
 
     if stopping:
         return {"result": "Interrupted"}
 
-    return {"result": "Task is done!",
-        "progress": 100,
-        'progress_info': {
-            'track_name': track.name,
-            'track_artist': track.artist,
-            'iteration': iteration,
-            'time_left_estimate': time_left_string
-        }
-    }
+    meta['progress_info']['task_description'] = "Exporting data to PDF"
 
+    # Make title filename friendly
+    safe_title = playlist_dict['title']
+    safe_title = safe_title.lower().replace(' ', '_')
+    keepcharacters = ('.', '_')
+    safe_title = "".join(c for c in safe_title if c.isalnum() or c in keepcharacters).rstrip()
+
+    # Generate a pdf with the playlist, track_info.
+    pdf_output_path = f"/data/playlist/mixster_export_{safe_title}.pdf"
+
+    pdf = PDF(tracks, {'font_path': environ.get("FONT_PATH")},
+              redis_client=redis_client,
+              status_key=status_key,
+              update_method=self.update_state,
+              meta=meta)
+
+    result = pdf.export(pdf_output_path)
+
+    if result == "USER_EXIT":
+        return {"result": "Interrupted"}
+    else:
+
+        meta['progress_info']['task_description'] = "Ready to Download"
+        meta['progress_info']['total_pages'] = f"({total_pages}/{total_pages})"
+        meta['progress_info']['time_left_estimate'] = "0:00:00"
+        meta['progress_info']['pdf_filename'] = pdf_output_path.split('/')[-1]
+
+        return meta
 
 @export_bp.route("/api/progress", methods = ["POST"])
 def track_progress():
