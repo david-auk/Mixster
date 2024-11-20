@@ -102,6 +102,7 @@ class Playlist:
 
     def export_to_json(self):
         return json.dumps({
+            'id': self.id,
             'url': self.url,
             'title': self.title,
             'amount_of_tracks': self.amount_of_tracks,

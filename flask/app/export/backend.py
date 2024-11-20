@@ -1,3 +1,5 @@
+from datetime import timedelta
+from time import time
 from fpdf import FPDF
 from spotify import Track
 from PIL import Image, ImageDraw, ImageFont
@@ -116,7 +118,6 @@ class TrackLabel:
         draw.text((date_x, date_y), date_text, fill = "black", font = date_font)
 
         # Save the image with built-in margins
-        print(f"Track label generated")
         return image
 
 
@@ -137,7 +138,6 @@ class QRCode:
         # Create the QR code image
         qr_image = qr.make_image(fill = "black", back_color = "white")
         qr_image = qr_image.resize((800, 800), resample = Image.LANCZOS)  # Resize to match the track label size
-        print("QR code generated")
         return qr_image
 
 
@@ -161,7 +161,8 @@ class PDF:
             pages = 2  # Always at least two pages for a qr and a tracklist
         return pages
 
-    def __init__(self, track_list: list[Track], style: dict, redis_client=None, status_key=None, update_method=None, meta: dict = None):
+    def __init__(self, track_list: list[Track], style: dict, redis_client=None, status_key=None, update_method=None,
+                 meta: dict = None):
         self.pdf = FPDF(orientation = 'P', unit = 'mm', format = 'A4')
         self.track_list = track_list
         self.total_pages = self.get_total_pages(len(track_list))
@@ -187,13 +188,20 @@ class PDF:
     def export(self, output_path):
 
         page_count = 0
+        runtimes = []
 
-        def update(page_count):
+        def update(page_count, start_time):
             if self.update_method is not None:
                 progress = 100 / self.total_pages * page_count
 
+                runtimes.append(time() - start_time)
+                avg_time = sum(runtimes) / len(runtimes)
+                time_left = round(avg_time * (self.total_pages - page_count))
+                time_left_string = str(timedelta(seconds = time_left))
+
                 self.meta['progress'] = progress
                 self.meta['progress_info']['total_pages'] = f"({page_count}/{self.total_pages})"
+                self.meta['progress_info']['time_left_estimate'] = time_left_string
 
                 self.update_method(state = "EXPORTING", meta = self.meta)
 
@@ -213,7 +221,7 @@ class PDF:
             # Add a page for TrackLabels
             self.pdf.add_page()
             page_count += 1
-            update(page_count)
+            start_time = time()
 
             # Arrange TrackLabels on the page
             for index in range(tracks_per_page):
@@ -237,10 +245,11 @@ class PDF:
                 track_label_image = track_label.export()
                 self.pdf.image(track_label_image, x = x, y = y, w = PDF.label_width, h = PDF.label_height)
 
+            update(page_count, start_time)
+
             # Add a page for QR codes
             self.pdf.add_page()
             page_count += 1
-            update(page_count)
 
             # Arrange QR codes on the page in a mirrored way
             for index in range(tracks_per_page):
@@ -263,8 +272,8 @@ class PDF:
                 qr_code_image = QRCode.generate(track.url)
                 self.pdf.image(qr_code_image, x = x, y = y, w = PDF.label_width, h = PDF.label_height)
 
+            update(page_count, start_time)
+
         # Save the PDF to the specified output path
         self.pdf.output(output_path)
-        print(f"PDF file exported to {output_path}")
-
         return "FINISHED"

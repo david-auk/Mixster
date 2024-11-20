@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, send_from_directory
 
 from .cache import Cache
 from celery import shared_task
@@ -101,8 +101,15 @@ def build_track_objects(self, playlist_dict):
 
     meta['progress_info']['task_description'] = "Exporting data to PDF"
 
+    # Make title filename friendly
+    safe_title = playlist_dict['title']
+    safe_title = safe_title.lower().replace(' ', '_')
+    keepcharacters = ('.', '_')
+    safe_title = "".join(c for c in safe_title if c.isalnum() or c in keepcharacters).rstrip()
+
     # Generate a pdf with the playlist, track_info.
-    pdf_output_path = f"/data/playlist/playlist_{playlist_dict['id']}.pdf"
+    pdf_output_path = f"/data/playlist/mixster_export_{safe_title}.pdf"
+
     pdf = PDF(tracks, {'font_path': environ.get("FONT_PATH")},
               redis_client=redis_client,
               status_key=status_key,
@@ -118,9 +125,9 @@ def build_track_objects(self, playlist_dict):
         meta['progress_info']['task_description'] = "Ready to Download"
         meta['progress_info']['total_pages'] = f"({total_pages}/{total_pages})"
         meta['progress_info']['time_left_estimate'] = "0:00:00"
+        meta['progress_info']['pdf_filename'] = pdf_output_path.split('/')[-1]
 
         return meta
-
 
 @export_bp.route("/api/progress", methods = ["POST"])
 def track_progress():

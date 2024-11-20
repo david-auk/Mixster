@@ -98,6 +98,7 @@
         stop_button.style.display = 'none';
         download_button.style.display = 'none';
 
+        time_left_estimate_element.style.visibility = 'hidden';
         song_info.style.visibility = 'hidden';
         progres.style.visibility = 'hidden';
 
@@ -105,7 +106,10 @@
         //const playlist = JSON.parse(' playlist | tojson | safe ');
         const playlist_id = '{{ playlist_id }}'
 
+        let progress_val = 0;
+
         function updateProgressBar(percent) {
+            progress_val = percent
             if (percent === 0) {
                 progress_bar.classList.remove("bg-success");
             } else if (percent === 100) {
@@ -180,12 +184,20 @@
                                         alert(`An error occurred during export.\nError message: ${result.error_msg}`);
                                         window.location.href = "/export";
                                     }else {
+                                        // Reset the progress bar if a new state is triggerd
+                                        if (result.progress < progress_val){
+                                            progress_bar.classList.remove("bg-success");
+                                        }
                                         updateProgressBar(result.progress)
                                         if (!isEmptyObject(result.progress_info)) {
+                                            if (time_left_estimate_element.style.visibility === 'hidden'){
+                                                time_left_estimate_element.style.visibility = 'visible';
+                                            }
                                             updateLoadingText(result.progress_info)
                                         }
                                         if (result.state === "EXPORTING"){
                                             // All the data is scraped
+                                            song_info.style.visibility = 'hidden';
                                             //stop_button.style.display = 'none';
                                         } else if (result.state === "SUCCESS") {
                                             clearInterval(interval);
@@ -197,15 +209,28 @@
                                                 .then(response => response.json())
                                                 .then(result => {
                                                     updateLoadingText(result.progress_info)
+                                                    // Hide buttons
+                                                    export_button.style.display = 'none';
+                                                    stop_button.style.display = 'none';
+                                                    export_button.removeAttribute("disabled");
+                                                    time_left_estimate_element.style.display = 'none';
+
+                                                    // Show Download button
+                                                    download_button.style.display = 'inline-block';
+                                                    download_button.removeEventListener("click", handleDownload); // Remove any existing event listener
+                                                    download_button.addEventListener("click", handleDownload);
+
+                                                    function handleDownload() {
+                                                        // Create a hidden link element for download
+                                                        const link = document.createElement("a");
+                                                        link.href = `/export/data/playlist/${result.progress_info.pdf_filename}`;
+
+                                                        // Trigger the download
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    }
                                                 })
-
-                                            // Hide buttons
-                                            export_button.style.display = 'none';
-                                            stop_button.style.display = 'none';
-                                            export_button.removeAttribute("disabled");
-
-                                            // Show Download button
-                                            download_button.style.display = 'inline-block';
                                         }
                                     }
                                 })
@@ -222,6 +247,7 @@
 
                             // Stop frontend
                             song_info.style.visibility = 'hidden';
+                            time_left_estimate_element.style.visibility = 'hidden';
                             progres.style.visibility = 'hidden';
                             updateProgressBar(0);
                             export_button.removeAttribute("disabled");
