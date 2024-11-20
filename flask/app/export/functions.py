@@ -117,6 +117,7 @@ def build_track_objects(self, playlist_dict):
 
         meta['progress_info']['task_description'] = "Ready to Download"
         meta['progress_info']['total_pages'] = f"({total_pages}/{total_pages})"
+        meta['progress_info']['time_left_estimate'] = "0:00:00"
 
         return meta
 

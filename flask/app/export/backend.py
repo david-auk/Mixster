@@ -120,20 +120,6 @@ class TrackLabel:
         return image
 
 
-class ColourPicker:
-
-    def __init__(self, track_list: list[Track]):
-        self.track_list = track_list
-
-    def get_style(self, track: Track) -> dict:
-        if not track in self.track_list:
-            RuntimeError("Track not found in tracklist")
-
-        style = {}
-
-        return style
-
-
 class QRCode:
 
     @staticmethod
