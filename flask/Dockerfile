@@ -31,8 +31,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Make port 5050 available to the world outside this container
 EXPOSE 5050
 
-# Demote to non root lever
+RUN mkdir -p "/data/playlist"
+
 RUN useradd -ms /bin/bash nonrootuser
+RUN mkdir -p "/data/playlist" && chown nonrootuser /data/playlist
+
+VOLUME /data
+
+# Demote to non root lever
 USER nonrootuser
 
 # Define environment variable

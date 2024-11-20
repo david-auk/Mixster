@@ -102,7 +102,7 @@ def build_track_objects(self, playlist_dict):
     meta['progress_info']['task_description'] = "Exporting data to PDF"
 
     # Generate a pdf with the playlist, track_info.
-    pdf_output_path = "/tmp/playlist.pdf"
+    pdf_output_path = f"/data/playlist/playlist_{playlist_dict['id']}.pdf"
     pdf = PDF(tracks, {'font_path': environ.get("FONT_PATH")},
               redis_client=redis_client,
               status_key=status_key,
