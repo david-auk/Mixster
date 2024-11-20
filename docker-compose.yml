@@ -11,6 +11,7 @@ services:
       - ./flask:/app
       - ./spotify:/app/spotify
       - ./mariadb:/app/mariadb
+      - mixster_volume:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -31,6 +32,8 @@ services:
       MYSQL_USER: ${MYSQL_USER_NAME}
       MYSQL_PASSWORD: ${MYSQL_USER_PASSWORD}
       MYSQL_HOST: mariadb
+
+      FONT_PATH: "/usr/share/fonts/truetype/msttcorefonts/Arial.TTF"
     networks:
       - backend
       - frontend
@@ -39,17 +42,19 @@ services:
     build:
       context: ./flask
     container_name: celery
-    command: celery -A app.celery_app worker --loglevel INFO
+    command: celery -A app.celery_app worker --loglevel=info
     volumes:
       - ./flask:/app
       - ./spotify:/app/spotify
       - ./mariadb:/app/mariadb
+      - mixster_volume:/data
     depends_on:
       redis:
         condition: service_healthy
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
+      FONT_PATH: "/usr/share/fonts/truetype/msttcorefonts/Arial.TTF"
     healthcheck:
       test: [ "CMD", "celery", "-A", "app.celery_app", "status" ]
       interval: 30s
@@ -98,9 +103,10 @@ services:
 
 volumes:
   mariadb_data:
+  mixster_volume:
 
 networks:
   backend:
-    internal: true
+    internal: false
   frontend:
     internal: false

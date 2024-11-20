@@ -1,4 +1,8 @@
-from flask import render_template, request
+from flask import render_template, request, send_from_directory, abort
+
+from .backend import PDF
+from .cache import Cache
+from spotify import Playlist, exeptions
 from mariadb import Database
 from . import export_bp
 import spotify.api
@@ -14,20 +18,41 @@ if environ.get('MYSQL_DATABASE') is not None:
 
 @export_bp.route("/", methods = ["GET", "POST"])
 def export_playlist():
-    if request.method == "POST":
+    if request.method == "POST" and "playlist_url" in request.form:
         playlist_url = request.form.get("playlist_url")
-
         try:
-            playlist = spotify.Playlist(playlist_url)
-        except spotify.playlist.PrivatePlaylistException as e:
-            return f"Playlist is not public: {e}"  # If playlist is private
-        except spotify.playlist.PublicPlaylistException as e:
+            playlist = Playlist(playlist_url)
+        except spotify.exeptions.URLError as e:
+            return f"URL error: {e}"
+        except spotify.exeptions.PlaylistException as e:
             return f"Failed to pull playlist: {e}"  # If spotapi pull Fails
         except Exception as e:
-            return f"Failed to load playlist: {e}"  # Catch-all exception
+            return f"Unexpected error while pulling playlist: {e}"  # Catch-all exception
 
-        # Extract tracks from the playlist
-        for track_uri in playlist.get_items_uri():
-            track = spotify.Track(track_uri)  # This operation is slow
+        # Add the playlist to the cache, so it can be reused dynamically
+        if Cache.has_key('playlist_obj', playlist.id):
+            Cache.remove('playlist_obj', playlist.id)
+
+        Cache.add('playlist_obj', playlist.id, playlist)
+
+        return render_template("export/export_playlist_bar.html",
+                               playlist_title = playlist.title,
+                               image_url = playlist.image_url,
+                               playlist_amount_of_tracks = playlist.amount_of_tracks,
+                               playlist_id = playlist.id,
+                               total_pages = PDF.get_total_pages(playlist.amount_of_tracks))
 
     return render_template("export/export_playlist.html")
+
+
+# Route to serve files from the 'data/playlist/' directory
+@export_bp.route('/data/playlist/<filename>')
+def serve_file(filename):
+    try:
+        # Define the directory containing your files
+        directory = '/data/playlist'
+        # Serve the requested file if it exists
+        return send_from_directory(directory, filename)
+    except FileNotFoundError:
+        # If the file doesn't exist, return a 404 error
+        abort(404)

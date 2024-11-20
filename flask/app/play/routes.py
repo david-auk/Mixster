@@ -15,6 +15,8 @@ if environ.get('MYSQL_DATABASE') is not None:
 @play_bp.route('/<track_uri>')
 def play_song(track_uri):
 
+    # https://blog.minhazav.dev/QR-and-barcode-scanner-using-html-and-javascript/
+
     access_token = session.get('access_token')
     if not access_token:
         return redirect(url_for('auth.login', next = request.path))

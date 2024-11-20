@@ -1,3 +1,4 @@
+import redis
 from flask import Flask
 from .auth import auth_bp
 from .export import export_bp
@@ -43,3 +44,4 @@ def create_app():
 # Create the Flask app and initialize Celery
 flask_app = create_app()
 celery_app = make_celery(flask_app)
+redis_client = redis.StrictRedis(host = 'redis', port = 6379, db = 0)
