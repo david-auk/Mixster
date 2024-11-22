@@ -40,16 +40,21 @@ erDiagram
     playlist_scan {
         int id PK "NN"
         int extends_playlist_scan FK
-        string playlist_name "NN"
-        string playlist_image_link "NN"
+        int playlist_id FK "NN"
         int amount_of_tracks "NN"
         timestamp timestamp "NN"
     }
+
+   playlist {
+      int id PK "NN"
+      varchar title "NN"
+      varchar playlist_image_link "NN"
+   }
     
     track {
         int id PK "NN"
         varchar title "NN"
-        int album FK "NN"
+        int album_id FK "NN"
         timestamp timestamp "NN"
     }
     
@@ -69,6 +74,7 @@ erDiagram
     %% Relations
     
     user ||--|{ playlist_scan : "scans"
+    playlist_scan }|--|| playlist : "updates"
     playlist_scan }|--|{ track : "scapes"
     playlist_scan ||--|| playlist_scan : "extends"
     track }|--|| album : "gets/puts_info"
