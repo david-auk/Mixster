@@ -37,31 +37,40 @@ Almost all information is scraped by the public spotify web interface but to acc
 
 ```mermaid
 erDiagram
-    Playlist_Scan {
+    playlist_scan {
         int id PK "NN"
+        int extends_playlist_scan FK
         string playlist_name "NN"
-        string playlist_image_link
+        string playlist_image_link "NN"
         int amount_of_tracks "NN"
-        date created_at "NN"
+        timestamp timestamp "NN"
     }
-```
-
-**SQL**:
-
-```SQL
--- Create the autodl database
-CREATE DATABASE IF NOT EXISTS mixster;
-
--- Use the autodl database
-USE mixster;
-
-CREATE TABLE playlist_scan (
-    id INT PRIMARY KEY,
-    playlist_name VARCHAR(255) NOT NULL,
-    playlist_image_link VARCHAR(83),
-    amount_of_tracks INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Todo: setup user and password
+    
+    track {
+        int id PK "NN"
+        varchar title "NN"
+        int album FK "NN"
+        timestamp timestamp "NN"
+    }
+    
+    album {
+        int id PK "NN"
+        varchar artist "NN"
+        int release_date "NN"
+    }
+    
+    user {
+        int id PK "NN"
+        varchar name "NN"
+        timestamp last_used "NN"
+        timestamp register_date "NN"
+    }
+    
+    %% Relations
+    
+    user ||--|{ playlist_scan : "scans"
+    playlist_scan }|--|{ track : "scapes"
+    playlist_scan ||--|| playlist_scan : "extends"
+    track }|--|| album : "gets/puts_info"
+    
 ```
