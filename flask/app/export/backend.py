@@ -8,12 +8,12 @@ import math
 
 
 class TrackLabel:
-    def __init__(self, track, style=None):
+    def __init__(self, track: Track, style=None):
         self.track = track
         self.track_info = {
-            'name': self.track.name,
-            'artist': self.track.artist,
-            'date': self.track.release_date[:4]  # Just get the year
+            'title': self.track.title,
+            'artist': self.track.album.get_artist_name(),
+            'date': self.track.album.release_date[:4]  # Just get the year
         }
         self.style = style if style is not None else {
             'font_path': 'Arial.ttf'
@@ -82,16 +82,16 @@ class TrackLabel:
         date_x = (img_size - date_width) // 2
         date_y = img_size // 2 - (date_font.size / 2)  # Center the date vertically
 
-        # Adjust the name font size and wrap text if needed
-        name_text = f"\"{self.track_info['name']}\""
+        # Adjust the title font size and wrap text if needed
+        name_text = f"\"{self.track_info['title']}\""
         name_font, name_lines = TrackLabel.__adjust_font_size_and_wrap(name_text, max_text_width, base_font_size,
                                                                        font_path)
 
-        # Calculate the total height of the name text
+        # Calculate the total height of the title text
         total_name_height = sum(name_font.size + 5 for _ in name_lines)
         name_y = date_y - total_name_height - 20  # Position above the date with some spacing
 
-        # Draw the name text, line by line
+        # Draw the title text, line by line
         y_offset = name_y
         for line in name_lines:
             line_width = draw.textlength(line, font = name_font)

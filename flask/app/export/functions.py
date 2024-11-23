@@ -77,7 +77,8 @@ def build_track_objects(self, playlist_dict):
         start_time = time()
 
         # Get the track object
-        track = Track(track_uri)
+        track_id = track_uri.split(':')[-1]
+        track = Track.build_from_id(track_id)
         tracks.append(track)
 
         # Do analytics
@@ -88,8 +89,8 @@ def build_track_objects(self, playlist_dict):
 
         # Update status
         meta['progress'] = progress
-        meta['progress_info']['track_name'] = track.name
-        meta['progress_info']['track_artist'] = track.artist
+        meta['progress_info']['track_name'] = track.title
+        meta['progress_info']['track_artist'] = track.album.get_artist_name()
         meta['progress_info']['iteration'] = iteration
         meta['progress_info']['time_left_estimate'] = time_left_string
 
@@ -176,7 +177,7 @@ def cache_interacter(data=None):
             output = method()
             return jsonify(output)
         else:
-            return jsonify({"error": "Invalid method name"}), 400
+            return jsonify({"error": "Invalid method title"}), 400
     else:
         if not Cache.has_key(attribute, key):
             return jsonify(None)

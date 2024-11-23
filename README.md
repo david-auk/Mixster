@@ -60,13 +60,18 @@ erDiagram
     
     album {
         int id PK "NN"
-        varchar artist "NN"
+        varchar artist_id "NN"
         int release_date "NN"
+    }
+    
+    artist {
+        int id PK "NN"
+        varchar title "NN"
     }
     
     user {
         int id PK "NN"
-        varchar name "NN"
+        varchar title "NN"
         timestamp last_used "NN"
         timestamp register_date "NN"
     }
@@ -78,5 +83,6 @@ erDiagram
     playlist_scan }|--|{ track : "scapes"
     playlist_scan ||--|| playlist_scan : "extends"
     track }|--|| album : "gets/puts_info"
+    artist }|--|{ album : "gets/puts_info"
     
 ```

@@ -11,7 +11,7 @@ services:
       - ./flask:/app
       - ./spotify:/app/spotify
       - ./mariadb:/app/mariadb
-      - mixster_volume:/data
+      - mixster_files:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -47,7 +47,7 @@ services:
       - ./flask:/app
       - ./spotify:/app/spotify
       - ./mariadb:/app/mariadb
-      - mixster_volume:/data
+      - mixster_files:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -96,6 +96,8 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql      # Persistent storage for the database
       - ./mixster.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
     expose:
       - "3306:3306"  # Expose port 3306 for database access
     networks:
@@ -103,7 +105,7 @@ services:
 
 volumes:
   mariadb_data:
-  mixster_volume:
+  mixster_files:
 
 networks:
   backend:

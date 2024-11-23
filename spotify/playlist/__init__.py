@@ -3,7 +3,7 @@ import json
 from spotapi import PublicPlaylist
 
 import spotify.exeptions
-from .. import utilities
+import spotify.utilities as utilities
 
 
 class Playlist:
@@ -90,7 +90,7 @@ class Playlist:
         if result:
             return int(result['content'])
         else:
-            return None
+            raise RuntimeError("Failed to get playlist length (soup search)")
 
     def get_items_uri(self):  # Todo make (option / default) all uri's unique
         track_uris = []
