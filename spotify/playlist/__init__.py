@@ -107,5 +107,5 @@ class Playlist:
             'title': self.title,
             'amount_of_tracks': self.amount_of_tracks,
             'image_url': self.image_url,
-            'track_uris': self.get_items_uri()
+            'items': self.items
         })

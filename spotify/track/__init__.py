@@ -4,7 +4,6 @@ from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
 
 import spotify.utilities as utilities
-from album import Album
 from spotify.album import Album, AlbumDAO
 from spotify.artist import Artist
 from typing_extensions import Self
