@@ -1,5 +1,9 @@
+import mysql.connector
 from flask import request, jsonify, send_from_directory
 
+from spotify.album import AlbumDAO
+from spotify.artist import ArtistDAO
+from spotify.track import Track, TrackDAO
 from .cache import Cache
 from celery import shared_task
 from celery.result import AsyncResult
@@ -11,13 +15,11 @@ from os import environ
 
 from .backend import PDF
 
-from spotify import Track
-
 
 @export_bp.route("/api/start", methods = ["POST"])
 def start():
     data = json.loads(request.get_json())
-    if not "track_uris" in data:
+    if not "items" in data:
         raise RuntimeError("Start command received without usable data")
 
     task = build_track_objects.delay(data)
@@ -52,7 +54,7 @@ def build_track_objects(self, playlist_dict):
     tracks = []
     stopping = False
 
-    total_pages = PDF.get_total_pages(len(playlist_dict["track_uris"]))
+    total_pages = PDF.get_total_pages(len(playlist_dict["items"]))
 
     meta = {
         'progress': 0,
@@ -66,38 +68,63 @@ def build_track_objects(self, playlist_dict):
         }
     }
 
-    for iteration, track_uri in enumerate(playlist_dict["track_uris"], 1):
+    with mysql.connector.connect(
+            host = environ["MYSQL_HOST"],
+            user = environ["MYSQL_USER"],
+            password = environ["MYSQL_PASSWORD"],
+            database = environ["MYSQL_DATABASE"]
+    ) as connection:
+        # Create DAO instances
+        artist_dao = ArtistDAO(connection)
+        album_dao = AlbumDAO(connection, artist_dao)
+        track_dao = TrackDAO(connection, album_dao)
 
-        user_input = redis_client.get(status_key)
-        if user_input and user_input.decode() == "stop":
-            stopping = True
-            break
+        for iteration, item in enumerate(playlist_dict["items"], 1):
+            start_time = time()
+            progress = increment * iteration
 
-        progress = increment * iteration
-        start_time = time()
+            user_input = redis_client.get(status_key)
+            if user_input and user_input.decode() == "stop":
+                stopping = True
+                break
 
-        # Get the track object
-        track = Track(track_uri)
-        tracks.append(track)
+            track_uri = item['itemV2']['data']['uri']
 
-        # Do analytics
-        runtimes.append(time() - start_time)
-        avg_time = sum(runtimes) / len(runtimes)
-        time_left = round(avg_time * (playlist_dict["amount_of_tracks"] - iteration))
-        time_left_string = str(timedelta(seconds = time_left))
+            # Get the track object
+            track_id = track_uri.split(':')[-1]
+            track = track_dao.get_instance(track_id)  # Try to get the track from saved info
+            if not track:
+                album_uri: str = item['itemV2']['data']['albumOfTrack']['uri']
+                album_id = album_uri.split(":")[-1]
+                album = album_dao.get_instance(album_id)  # Try to get the release date from DB
+                if album:
+                    track_title = item['itemV2']['data']['name']
+                    track = Track(track_id, track_title, album)
+                else:
+                    track = Track.build_from_id(track_id)
 
-        # Update status
-        meta['progress'] = progress
-        meta['progress_info']['track_name'] = track.name
-        meta['progress_info']['track_artist'] = track.artist
-        meta['progress_info']['iteration'] = iteration
-        meta['progress_info']['time_left_estimate'] = time_left_string
+                track_dao.put_instance(track)  # Save info to DB
 
-        # Send status
-        self.update_state(state = "PROSESSING", meta = meta)
+            tracks.append(track)
 
-    if stopping:
-        return {"result": "Interrupted"}
+            # Do analytics
+            runtimes.append(time() - start_time)
+            avg_time = sum(runtimes) / len(runtimes)
+            time_left = round(avg_time * (playlist_dict["amount_of_tracks"] - iteration))
+            time_left_string = str(timedelta(seconds = time_left))
+
+            # Update status
+            meta['progress'] = progress
+            meta['progress_info']['track_name'] = track.title
+            meta['progress_info']['track_artist'] = track.album.get_artist_name()
+            meta['progress_info']['iteration'] = iteration
+            meta['progress_info']['time_left_estimate'] = time_left_string
+
+            # Send status
+            self.update_state(state = "PROSESSING", meta = meta)
+
+        if stopping:
+            return {"result": "Interrupted"}
 
     meta['progress_info']['task_description'] = "Exporting data to PDF"
 
@@ -176,7 +203,7 @@ def cache_interacter(data=None):
             output = method()
             return jsonify(output)
         else:
-            return jsonify({"error": "Invalid method name"}), 400
+            return jsonify({"error": "Invalid method title"}), 400
     else:
         if not Cache.has_key(attribute, key):
             return jsonify(None)

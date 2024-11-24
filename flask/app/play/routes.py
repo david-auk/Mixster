@@ -1,16 +1,6 @@
 from flask import render_template, request, session, redirect, url_for
-from os import environ
-from mariadb import Database
 from . import play_bp
 import spotify.api
-
-if environ.get('MYSQL_DATABASE') is not None:
-    db = Database(
-        database = environ.get("MYSQL_DATABASE"),
-        user = environ.get("MYSQL_USER"),
-        password = environ.get("MYSQL_PASSWORD"),
-        host = environ.get("MYSQL_HOST")
-    )
 
 @play_bp.route('/<track_uri>')
 def play_song(track_uri):

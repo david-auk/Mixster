@@ -10,8 +10,7 @@ services:
     volumes:
       - ./flask:/app
       - ./spotify:/app/spotify
-      - ./mariadb:/app/mariadb
-      - mixster_volume:/data
+      - mixster_files:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -46,8 +45,7 @@ services:
     volumes:
       - ./flask:/app
       - ./spotify:/app/spotify
-      - ./mariadb:/app/mariadb
-      - mixster_volume:/data
+      - mixster_files:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -55,6 +53,12 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       FONT_PATH: "/usr/share/fonts/truetype/msttcorefonts/Arial.TTF"
+
+      # MariaDB
+      MYSQL_DATABASE: ${MYSQL_DATABASE_NAME}
+      MYSQL_USER: ${MYSQL_USER_NAME}
+      MYSQL_PASSWORD: ${MYSQL_USER_PASSWORD}
+      MYSQL_HOST: mariadb
     healthcheck:
       test: [ "CMD", "celery", "-A", "app.celery_app", "status" ]
       interval: 30s
@@ -96,6 +100,8 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql      # Persistent storage for the database
       - ./mixster.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
     expose:
       - "3306:3306"  # Expose port 3306 for database access
     networks:
@@ -103,7 +109,7 @@ services:
 
 volumes:
   mariadb_data:
-  mixster_volume:
+  mixster_files:
 
 networks:
   backend:
