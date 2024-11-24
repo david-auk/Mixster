@@ -45,7 +45,7 @@ class ArtistDAO:
         finally:
             cursor.close()
 
-    def get_instance(self, artist_id: str) -> Artist:
+    def get_instance(self, artist_id: str) -> Artist | None:
         """
         Retrieves an Artist instance by its ID from the database.
         :param artist_id: The ID of the artist to retrieve.

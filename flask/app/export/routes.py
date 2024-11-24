@@ -3,18 +3,8 @@ from flask import render_template, request, send_from_directory, abort
 from .backend import PDF
 from .cache import Cache
 from spotify import Playlist, exeptions
-from mariadb import Database
 from . import export_bp
 import spotify.api
-from os import environ
-
-if environ.get('MYSQL_DATABASE') is not None:
-    db = Database(
-        database = environ.get("MYSQL_DATABASE"),
-        user = environ.get("MYSQL_USER"),
-        password = environ.get("MYSQL_PASSWORD"),
-        host = environ.get("MYSQL_HOST")
-    )
 
 @export_bp.route("/", methods = ["GET", "POST"])
 def export_playlist():

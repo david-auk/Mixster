@@ -10,7 +10,6 @@ services:
     volumes:
       - ./flask:/app
       - ./spotify:/app/spotify
-      - ./mariadb:/app/mariadb
       - mixster_files:/data
     depends_on:
       redis:
@@ -46,7 +45,6 @@ services:
     volumes:
       - ./flask:/app
       - ./spotify:/app/spotify
-      - ./mariadb:/app/mariadb
       - mixster_files:/data
     depends_on:
       redis:

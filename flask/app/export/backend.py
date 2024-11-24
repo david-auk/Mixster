@@ -13,7 +13,7 @@ class TrackLabel:
         self.track_info = {
             'title': self.track.title,
             'artist': self.track.album.get_artist_name(),
-            'date': self.track.album.release_date[:4]  # Just get the year
+            'date': str(self.track.album.release_date.year)  # Just get the year
         }
         self.style = style if style is not None else {
             'font_path': 'Arial.ttf'

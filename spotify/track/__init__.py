@@ -1,7 +1,10 @@
+import datetime
+
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
 
 import spotify.utilities as utilities
+from album import Album
 from spotify.album import Album, AlbumDAO
 from spotify.artist import Artist
 from typing_extensions import Self
@@ -12,7 +15,6 @@ class Track:
     @classmethod
     def build_from_id(cls, track_id: str, pull_tries: int = 5) -> Self:
         url = f"https://open.spotify.com/track/{track_id}"
-
         soup = None
         for attempt in range(pull_tries):
             attempt += 1
@@ -40,6 +42,7 @@ class Track:
         album_url = soup.find("meta", attrs = {"name": "music:album"})["content"]
         album_id = album_url.split("/")[-1]
         release_date = soup.find("meta", attrs = {"name": "music:release_date"})["content"]
+        release_date = datetime.datetime.strptime(release_date, "%Y-%m-%d")
         album = Album(album_id, release_date, artists)
 
         track_title = soup.find("meta", property = "og:title")["content"]
@@ -53,7 +56,7 @@ class Track:
         self.album = album
 
     def __repr__(self):
-        return f"<Track(id={self.id}, title={self.title}, artist={self.album.artists}, release_date={self.album.release_date})>"
+        return f"<Track(id={self.id}, title={self.title}, album={self.album}, release_date={self.album.release_date})>"
 
 
 class TrackDAO:
@@ -74,7 +77,7 @@ class TrackDAO:
         if self.connection:
             self.connection.close()
 
-    def put_track(self, track: Track):
+    def put_instance(self, track: Track):
         """
         Inserts or updates a track and its related album/artist in the database.
         :param track: A Track object containing the track data.
@@ -83,7 +86,7 @@ class TrackDAO:
             cursor = self.connection.cursor()
 
             # Ensure the album and artist exist, using the AlbumDAO
-            self.album_dao.put_album(track.album)
+            self.album_dao.put_instance(track.album)
 
             # Check if the track already exists
             cursor.execute("SELECT id FROM track WHERE id = %s", (track.id,))
@@ -107,10 +110,44 @@ class TrackDAO:
 
             # Commit the transaction
             self.connection.commit()
-            print(f"Track '{track.title}' successfully inserted or updated.")
 
         except Exception as e:
             print(f"Error: {e}")
             self.connection.rollback()
+        finally:
+            cursor.close()
+
+    def get_instance(self, track_id: str) -> Track | None:
+        """
+        Retrieves a Track instance by its ID from the database.
+        :param track_id: The ID of the track to retrieve.
+        :return: A Track instance, or None if not found.
+        """
+        try:
+            cursor = self.connection.cursor(dictionary = True)
+
+            # Fetch album data
+            query = """
+                    SELECT id, title, album_id
+                    FROM track
+                    WHERE id = %s
+                    """
+            cursor.execute(query, (track_id,))
+            track_data = cursor.fetchone()
+
+            if not track_data:
+                return None  # Track not found
+
+            # Construct and return the Track instance
+            track = Track(
+                track_id = track_data["id"],
+                title = track_data["title"],
+                album = self.album_dao.get_instance(track_data["album_id"])  # Updated to handle multiple artists
+            )
+            return track
+
+        except Exception as e:
+            print(f"Error fetching album instance: {e}")
+            return None
         finally:
             cursor.close()
