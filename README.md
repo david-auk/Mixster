@@ -82,7 +82,7 @@ erDiagram
     playlist_scan }|--|| playlist : "updates"
     playlist_scan }|--|{ track : "scapes"
     playlist_scan ||--|| playlist_scan : "extends"
-    track }|--|| album : "gets/puts_info"
-    artist }|--|{ album : "gets/puts_info"
+    track }|--|| album : "is_in"
+    artist }|--|{ album : "releases"
     
 ```
