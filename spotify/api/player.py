@@ -1,6 +1,5 @@
 from .authenticate import Authenticate
 import requests
-from spotify.user import User
 
 # Spotify API endpoint for playback control
 SPOTIFY_PLAYBACK_URL = 'https://api.spotify.com/v1/me/player/play'
