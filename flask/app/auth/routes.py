@@ -16,7 +16,9 @@ def callback():
 
     # Spotify redirects back to your callback with an authorization code
     auth_obj = spotify.api.Authenticate(request.args.get('code'))
+    user = auth_obj.get_user()
     session['access_token'] = auth_obj.get_access_token()
+    session['user_vars'] = vars(user)
 
     # Retrieve the 'state' parameter for redirection
     next_url = request.args.get('state', '/')
