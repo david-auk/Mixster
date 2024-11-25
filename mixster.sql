@@ -2,8 +2,9 @@
 CREATE TABLE user (
     id VARCHAR(255) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    last_used TIMESTAMP NOT NULL,
-    register_date TIMESTAMP NOT NULL
+    profile_picture_image_url VARCHAR(255) DEFAULT NULL,
+    last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    registry_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create the `playlist` table
