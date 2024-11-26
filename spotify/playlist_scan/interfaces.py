@@ -42,7 +42,7 @@ class UpdateWeb(Update):
         self.runtimes.append(time() - self.start_time)
         avg_time = sum(self.runtimes) / len(self.runtimes)
         time_left = round(avg_time * (total_iterations - iteration))
-        analytics['time_left_string'] = str(timedelta(seconds = time_left))
+        self.meta['progress_info']['time_left_estimate'] = str(timedelta(seconds = time_left))
 
         # Track info
         self.meta['progress_info']['track_name'] = current_track.title
@@ -54,13 +54,6 @@ class UpdateWeb(Update):
         return self.meta
 
     def update(self):
-
-        # Update status
-        #self.meta['progress'] = analytics['progress']  #
-        #self.meta['progress_info']['track_name'] = analytics['track_title']
-        #self.meta['progress_info']['track_artist'] = analytics['track_artist']
-        #self.meta['progress_info']['iteration'] = analytics['iteration']
-        #self.meta['progress_info']['time_left_estimate'] = analytics['time_left_string']
 
         # Send status
         self.update_method(state = "PROSESSING", meta = self.meta)

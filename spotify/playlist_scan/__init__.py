@@ -120,10 +120,13 @@ class PlaylistScan:
         return items
 
     def get_tracks(self, track_dao: TrackDAO = None, update_obj: Update = None) -> list[Track]:
-        if len(self.tracks) >= len(self.items) and self.scan_completed:
+
+        if len(self.tracks) == len(self.items) and self.scan_completed:
             return self.tracks
 
         items = self.get_items()
+
+        # Todo add resume from last scanned track if interrupted
 
         for iteration, item in enumerate(items, 1):
 
