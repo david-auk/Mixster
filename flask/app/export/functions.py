@@ -1,14 +1,14 @@
 import mysql.connector
 from flask import request, jsonify, send_from_directory
 
+from spotify.playlist_scan import PlaylistScan
 from spotify.album import AlbumDAO
 from spotify.artist import ArtistDAO
-from spotify.track import Track, TrackDAO
+from spotify.playlist_scan.interfaces import UpdateWeb
+from spotify.track import TrackDAO
 from .cache import Cache
 from celery import shared_task
 from celery.result import AsyncResult
-from time import time
-from datetime import timedelta
 from . import export_bp
 import json
 from os import environ
@@ -18,11 +18,11 @@ from .backend import PDF
 
 @export_bp.route("/api/start", methods = ["POST"])
 def start():
-    data = json.loads(request.get_json())
-    if not "items" in data:
-        raise RuntimeError("Start command received without usable data")
 
-    task = build_track_objects.delay(data)
+    # For linting
+    PlaylistScan.build_from_attributes(request.get_json())
+
+    task = build_track_objects.delay(request.get_json())
     return {"task_id": task.id}
 
 
@@ -42,19 +42,15 @@ def stop():
 
 
 @shared_task(bind = True)
-def build_track_objects(self, playlist_dict):
+def build_track_objects(self, playlist_scan_attributes: dict):
     from .. import redis_client
 
-    task_id = self.request.id
-    status_key = f"task_status:{task_id}"
+    playlist_scan = PlaylistScan.build_from_attributes(playlist_scan_attributes)
 
+    # Set initial 0% State
     self.update_state(state = "PROSESSING", meta = {'progress': 0})
-    increment = 100 / playlist_dict["amount_of_tracks"]
-    runtimes = []
-    tracks = []
-    stopping = False
 
-    total_pages = PDF.get_total_pages(len(playlist_dict["items"]))
+    total_pages = PDF.get_total_pages(playlist_scan.amount_of_tracks)
 
     meta = {
         'progress': 0,
@@ -68,68 +64,31 @@ def build_track_objects(self, playlist_dict):
         }
     }
 
+    update_obj = UpdateWeb(redis_client = redis_client, status_key = f"task_status:{self.request.id}", update_method = self.update_state, meta = meta)
+
     with mysql.connector.connect(
-            host = environ["MYSQL_HOST"],
-            user = environ["MYSQL_USER"],
-            password = environ["MYSQL_PASSWORD"],
-            database = environ["MYSQL_DATABASE"]
+        host = environ["MYSQL_HOST"],
+        user = environ["MYSQL_USER"],
+        password = environ["MYSQL_PASSWORD"],
+        database = environ["MYSQL_DATABASE"]
     ) as connection:
         # Create DAO instances
         artist_dao = ArtistDAO(connection)
         album_dao = AlbumDAO(connection, artist_dao)
         track_dao = TrackDAO(connection, album_dao)
 
-        for iteration, item in enumerate(playlist_dict["items"], 1):
-            start_time = time()
-            progress = increment * iteration
+        # Scan for the dates and update the web interface
+        playlist_scan.get_tracks(track_dao, update_obj)
 
-            user_input = redis_client.get(status_key)
-            if user_input and user_input.decode() == "stop":
-                stopping = True
-                break
+    meta = update_obj.meta
 
-            track_uri = item['itemV2']['data']['uri']
-
-            # Get the track object
-            track_id = track_uri.split(':')[-1]
-            track = track_dao.get_instance(track_id)  # Try to get the track from saved info
-            if not track:
-                album_uri: str = item['itemV2']['data']['albumOfTrack']['uri']
-                album_id = album_uri.split(":")[-1]
-                album = album_dao.get_instance(album_id)  # Try to get the release date from DB
-                if album:
-                    track_title = item['itemV2']['data']['name']
-                    track = Track(track_id, track_title, album)
-                else:
-                    track = Track.build_from_id(track_id)
-
-                track_dao.put_instance(track)  # Save info to DB
-
-            tracks.append(track)
-
-            # Do analytics
-            runtimes.append(time() - start_time)
-            avg_time = sum(runtimes) / len(runtimes)
-            time_left = round(avg_time * (playlist_dict["amount_of_tracks"] - iteration))
-            time_left_string = str(timedelta(seconds = time_left))
-
-            # Update status
-            meta['progress'] = progress
-            meta['progress_info']['track_name'] = track.title
-            meta['progress_info']['track_artist'] = track.album.get_artist_name()
-            meta['progress_info']['iteration'] = iteration
-            meta['progress_info']['time_left_estimate'] = time_left_string
-
-            # Send status
-            self.update_state(state = "PROSESSING", meta = meta)
-
-        if stopping:
-            return {"result": "Interrupted"}
+    if update_obj.remote_stop():
+        return {"result": "Interrupted"}
 
     meta['progress_info']['task_description'] = "Exporting data to PDF"
 
     # Make title filename friendly
-    safe_title = playlist_dict['title']
+    safe_title = playlist_scan.playlist.title
     safe_title = safe_title.lower().replace(' ', '_')
     keepcharacters = ('.', '_')
     safe_title = "".join(c for c in safe_title if c.isalnum() or c in keepcharacters).rstrip()
@@ -137,9 +96,9 @@ def build_track_objects(self, playlist_dict):
     # Generate a pdf with the playlist, track_info.
     pdf_output_path = f"/data/playlist/mixster_export_{safe_title}.pdf"
 
-    pdf = PDF(tracks, {'font_path': environ.get("FONT_PATH")},
+    pdf = PDF(playlist_scan.tracks, {'font_path': environ.get("FONT_PATH")},
               redis_client=redis_client,
-              status_key=status_key,
+              status_key=f"task_status:{self.request.id}",
               update_method=self.update_state,
               meta=meta)
 

@@ -1,7 +1,7 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-import spotify.exeptions
+from spotify.exceptions import URLError
 
 
 def extract_spotify_type_id(link):
@@ -12,10 +12,10 @@ def extract_spotify_type_id(link):
     if match:
         return match.groups()
     else:
-        raise spotify.exeptions.URLError("Invalid Spotify URL")
+        raise URLError("Invalid Spotify URL")
 
 
-def build_soup(url: str):
+def build_soup(url: str) -> BeautifulSoup:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
@@ -27,6 +27,6 @@ def build_soup(url: str):
 
     response = requests.get(url, headers = headers)
     if response.status_code != 200:
-        raise Exception("Failed to retrieve track page")
+        raise RuntimeError("Failed to retrieve track page")
 
     return BeautifulSoup(response.text, "html.parser")

@@ -11,7 +11,7 @@ CREATE TABLE user (
 CREATE TABLE playlist (
     id VARCHAR(255) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    playlist_image_link VARCHAR(255) NOT NULL
+    cover_image_url VARCHAR(255) NOT NULL
 );
 
 -- Create the `playlist_scan` table
@@ -21,7 +21,8 @@ CREATE TABLE playlist_scan (
     playlist_id VARCHAR(255) NOT NULL,
     requested_by_user_id VARCHAR(255) NOT NULL,
     amount_of_tracks INT NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
+    scan_completed BOOLEAN NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (extends_playlist_scan) REFERENCES playlist_scan(id) ON DELETE CASCADE,
     FOREIGN KEY (requested_by_user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (playlist_id) REFERENCES playlist(id) ON DELETE CASCADE

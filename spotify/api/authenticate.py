@@ -76,6 +76,7 @@ class Authenticate:
             )
 
             user_dao.put_instance(user)
+            user_dao.update_last_login(user)
 
         return user
 
