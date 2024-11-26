@@ -1,4 +1,4 @@
-from datetime import datetime
+from time import time
 
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
@@ -6,7 +6,7 @@ from spotify.artist import Artist, ArtistDAO
 
 
 class Album:
-    def __init__(self, album_id: str, release_date: datetime, artists: list[Artist]):
+    def __init__(self, album_id: str, release_date: time, artists: list[Artist]):
         self.id = album_id
         self.release_date = release_date
         self.artists = artists

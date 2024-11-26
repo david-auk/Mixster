@@ -1,11 +1,13 @@
 import mysql.connector
 from flask import request, jsonify, send_from_directory
 
-from spotify.playlist_scan import PlaylistScan
+from spotify.playlist import PlaylistDAO
+from spotify.playlist_scan import PlaylistScan, PlaylistScanDAO
 from spotify.album import AlbumDAO
 from spotify.artist import ArtistDAO
 from spotify.playlist_scan.interfaces import UpdateWeb
 from spotify.track import TrackDAO
+from spotify.user import UserDAO
 from .cache import Cache
 from celery import shared_task
 from celery.result import AsyncResult
@@ -45,7 +47,11 @@ def stop():
 def build_track_objects(self, playlist_scan_attributes: dict):
     from .. import redis_client
 
+    print("started build_tracks")
+
     playlist_scan = PlaylistScan.build_from_attributes(playlist_scan_attributes)
+
+    print(f'starting {playlist_scan.playlist.title}')
 
     # Set initial 0% State
     self.update_state(state = "PROSESSING", meta = {'progress': 0})
@@ -76,9 +82,14 @@ def build_track_objects(self, playlist_scan_attributes: dict):
         artist_dao = ArtistDAO(connection)
         album_dao = AlbumDAO(connection, artist_dao)
         track_dao = TrackDAO(connection, album_dao)
+        user_dao = UserDAO(connection)
+        playlist_dao = PlaylistDAO(connection)
+        playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)
 
         # Scan for the dates and update the web interface
         playlist_scan.get_tracks(track_dao, update_obj)
+
+        playlist_scan_dao.put_instance(playlist_scan)
 
     meta = update_obj.meta
 

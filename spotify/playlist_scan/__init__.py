@@ -13,12 +13,12 @@ from spotify import exceptions as exceptions
 
 from .interfaces import Update
 
+
 class PlaylistScan:
     def __init__(self, playlist: Playlist, requested_by_user: User, amount_of_tracks: int, scan_completed: bool,
                  extends_playlist_scan: 'PlaylistScan' = None,
-                 id: int = None, tracks: list[Track] = [], items = None):
+                 id: int = None, tracks: list[Track] = [], items: dict = None):
 
-        self.tracks = tracks
         self.id = id
 
         if playlist:
@@ -35,9 +35,11 @@ class PlaylistScan:
         self.amount_of_tracks = amount_of_tracks
         self.extends_playlist_scan = extends_playlist_scan
 
-        if items:
-            self.items = items
-        else:
+        self.tracks = tracks
+        self.items = items
+
+        # get items if tracks are not loaded yet
+        if not self.tracks and not self.items:
             self.items = None
             self.items = self.get_items()
 
@@ -107,6 +109,8 @@ class PlaylistScan:
         # Check if the playlist is small enough for a direct get_playlist_info method call
         if self.amount_of_tracks > 343:
             items = []
+
+            # TODO investigate why this line doesnt work within celery.
             for page in pub_list_obj.paginate_playlist():
                 items += page['items']
         else:
