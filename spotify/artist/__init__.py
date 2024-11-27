@@ -13,6 +13,9 @@ class Artist:
 
 class ArtistDAO:
     def __init__(self, connection: PooledMySQLConnection | MySQLConnectionAbstract):
+        """
+        Initialize the DAO with a database connection
+        """
         self.connection = connection
 
     def put_instance(self, artist: Artist):

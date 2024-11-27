@@ -170,15 +170,22 @@ class PlaylistScan:
 class PlaylistScanDAO:
     def __init__(self, connection: PooledMySQLConnection | MySQLConnectionAbstract, playlist_dao: PlaylistDAO,
                  user_dao: UserDAO, track_dao: TrackDAO):
+        """
+        Initialize the DAO with a database connection and related DAOs.
+        :param connection: A MySQL database connection object.
+        :param playlist_dao: Instance of PlaylistDAO to handle playlist (data) related operations.
+        :param user_dao: Instance of UserDAO to handle user-related operations.
+        :param track_dao: Instance of TrackDAO to handle track-related operations.
+        """
         self.connection = connection
         self.playlist_dao = playlist_dao
         self.user_dao = user_dao
         self.track_dao = track_dao
 
-    def put_instance(self, playlist_scan: PlaylistScan) -> str:
+    def put_instance(self, playlist_scan: PlaylistScan) -> int:
         """
-        Inserts or updates a playlist in the database.
-        :param playlist: A Playlist object containing the playlist data.
+        Inserts or updates the data of a scan capturing playlist in the database.
+        :param playlist_scan: A PlaylistScan object containing the playlist scan data.
         """
         try:
             cursor = self.connection.cursor()
@@ -251,7 +258,7 @@ class PlaylistScanDAO:
         finally:
             cursor.close()
 
-    def get_latest_id(self) -> int:
+    def get_latest_id(self) -> int | None:
         try:
             cursor = self.connection.cursor(dictionary = True)
 
@@ -275,11 +282,12 @@ class PlaylistScanDAO:
             return None
         finally:
             cursor.close()
+
     def get_instance(self, playlist_scan_id: int) -> PlaylistScan | None:
         """
         Retrieves an Artist instance by its ID from the database.
-        :param playlist_id: The ID of the user to retrieve.
-        :return: An Artist instance, or None if not found.
+        :param playlist_scan_id: The ID of the playlist_scan to retrieve.
+        :return: An PlaylistScan instance, or None if not found.
         """
         try:
             cursor = self.connection.cursor(dictionary = True)

@@ -75,9 +75,9 @@ class UserDAO:
 
     def get_instance(self, user_id: str) -> User | None:
         """
-        Retrieves an Artist instance by its ID from the database.
+        Retrieves a User instance by its ID from the database.
         :param user_id: The ID of the user to retrieve.
-        :return: An Artist instance, or None if not found.
+        :return: A User instance, or None if not found.
         """
         try:
             cursor = self.connection.cursor(dictionary = True)

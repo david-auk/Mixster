@@ -126,6 +126,9 @@ class Playlist:
 
 class PlaylistDAO:
     def __init__(self, connection: PooledMySQLConnection | MySQLConnectionAbstract):
+        """
+        Initialize the DAO with a database connection
+        """
         self.connection = connection
 
     def put_instance(self, playlist: Playlist):
@@ -160,9 +163,9 @@ class PlaylistDAO:
 
     def get_instance(self, playlist_id: str) -> Playlist | None:
         """
-        Retrieves an Artist instance by its ID from the database.
-        :param playlist_id: The ID of the user to retrieve.
-        :return: An Artist instance, or None if not found.
+        Retrieves a Playlist instance by its ID from the database.
+        :param playlist_id: The ID of the playlist to retrieve.
+        :return: A Playlist instance, or None if not found.
         """
         try:
             cursor = self.connection.cursor(dictionary = True)

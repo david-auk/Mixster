@@ -69,13 +69,6 @@ class TrackDAO:
         self.connection = connection
         self.album_dao = album_dao
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.connection:
-            self.connection.close()
-
     def put_instance(self, track: Track):
         """
         Inserts or updates a track and its related album/artist in the database.

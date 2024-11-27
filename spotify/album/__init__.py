@@ -22,12 +22,16 @@ class Album:
 
 class AlbumDAO:
     def __init__(self, connection: PooledMySQLConnection | MySQLConnectionAbstract, artist_dao: ArtistDAO):
+        """
+        Initialize the DAO with a database connection and related dao's
+        :param artist_dao Instance of ArtistDAO to handle artist (data) related operations
+        """
         self.connection = connection
         self.artist_dao = artist_dao
 
     def put_instance(self, album: Album):
         """
-        Inserts or updates an album and its related artist in the database.
+        Inserts or updates an Album and its related album in the database.
         :param album: An Album object containing the album data.
         """
         try:
