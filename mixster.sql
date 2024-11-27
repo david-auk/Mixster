@@ -59,9 +59,9 @@ CREATE TABLE track (
 
 -- Create the relationship between `playlist_scan` and `track` (many-to-many)
 CREATE TABLE playlist_scan_track (
+    id INT PRIMARY KEY AUTO_INCREMENT, # As its own column to support the same track id in the same playlist.
     playlist_scan_id INT NOT NULL,
     track_id VARCHAR(255) NOT NULL,
-    PRIMARY KEY (playlist_scan_id, track_id),
     FOREIGN KEY (playlist_scan_id) REFERENCES playlist_scan(id) ON DELETE CASCADE,
     FOREIGN KEY (track_id) REFERENCES track(id) ON DELETE CASCADE
 );

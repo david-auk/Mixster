@@ -175,7 +175,7 @@ class PlaylistScanDAO:
         self.user_dao = user_dao
         self.track_dao = track_dao
 
-    def put_instance(self, playlist_scan: PlaylistScan):
+    def put_instance(self, playlist_scan: PlaylistScan) -> str:
         """
         Inserts or updates a playlist in the database.
         :param playlist: A Playlist object containing the playlist data.
@@ -188,11 +188,6 @@ class PlaylistScanDAO:
 
             # Ensure the user exist, using the UserDAO
             self.user_dao.put_instance(playlist_scan.requested_by_user)
-
-            # Ensure all the tracks exist, using TrackDAO
-            if playlist_scan.tracks:
-                for track in playlist_scan.tracks:
-                    self.track_dao.put_instance(track)
 
             if playlist_scan.id:
                 # Check if the playlist exists
@@ -208,7 +203,7 @@ class PlaylistScanDAO:
                 cursor.execute(update_query, (
                     playlist_scan.extends_playlist_scan.id, playlist_scan.playlist.id,
                     playlist_scan.requested_by_user.id,
-                    playlist_scan.amount_of_tracks, int(playlist_scan.scan_completed),  # Cast to int
+                    playlist_scan.amount_of_tracks, int(playlist_scan.scan_completed),
                     playlist_scan.id))
             else:
                 if playlist_scan.extends_playlist_scan:
@@ -227,8 +222,28 @@ class PlaylistScanDAO:
                         playlist_scan.playlist.id, playlist_scan.requested_by_user.id, playlist_scan.amount_of_tracks,
                         int(playlist_scan.scan_completed)))
 
+            # Get the just created instance id
+            playlist_scan.id = self.get_latest_id()
+
+            # Ensure all the tracks exist, using TrackDAO
+            if playlist_scan.tracks:
+
+                # only get unique tracks
+                for track in set(playlist_scan.tracks):
+                    self.track_dao.put_instance(track)
+
+                    # Link the track to the scan
+                    relationship_query = """
+                    INSERT INTO playlist_scan_track (playlist_scan_id, track_id)
+                    VALUES (%s, %s)
+                    """
+                    cursor.execute(relationship_query, (playlist_scan.id, track.id))
+
             # Commit the transaction
             self.connection.commit()
+
+            # Return the most recently generated id (This instance's id)
+            return playlist_scan.id
 
         except Exception as e:
             print(f"Error: {e}")
@@ -236,6 +251,30 @@ class PlaylistScanDAO:
         finally:
             cursor.close()
 
+    def get_latest_id(self) -> int:
+        try:
+            cursor = self.connection.cursor(dictionary = True)
+
+            # Fetch artist data
+            query = """
+            SELECT id
+            FROM playlist_scan
+            ORDER BY id DESC 
+            LIMIT 1
+            """
+            cursor.execute(query)
+            playlist_scan_id = cursor.fetchone()
+
+            if not playlist_scan_id:
+                return None  # No scan created yet
+
+            return int(playlist_scan_id['id'])
+
+        except Exception as e:
+            print(f"Error fetching user instance: {e}")
+            return None
+        finally:
+            cursor.close()
     def get_instance(self, playlist_scan_id: int) -> PlaylistScan | None:
         """
         Retrieves an Artist instance by its ID from the database.

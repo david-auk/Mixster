@@ -57,8 +57,8 @@ class UserDAO:
 
             if existing_user:
                 # Update the existing artist
-                update_query = "UPDATE user SET name = %s, profile_picture_image_url = %s, last_login = %s WHERE id = %s"
-                cursor.execute(update_query, (user.name, user.profile_picture_image_url, user.last_login, user.id))
+                update_query = "UPDATE user SET name = %s, profile_picture_image_url = %s WHERE id = %s"
+                cursor.execute(update_query, (user.name, user.profile_picture_image_url, user.id))
             else:
                 # Insert the new artist
                 insert_query = "INSERT INTO user (id, name, profile_picture_image_url) VALUES (%s, %s, %s)"

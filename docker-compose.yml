@@ -32,6 +32,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_USER_PASSWORD}
       MYSQL_HOST: mariadb
 
+      TZ: ${TIMEZONE-CET}
       FONT_PATH: "/usr/share/fonts/truetype/msttcorefonts/Arial.TTF"
     networks:
       - backend
@@ -53,6 +54,7 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       FONT_PATH: "/usr/share/fonts/truetype/msttcorefonts/Arial.TTF"
+      TZ: ${TIMEZONE-CET}
 
       # MariaDB
       MYSQL_DATABASE: ${MYSQL_DATABASE_NAME}

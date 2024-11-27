@@ -47,11 +47,7 @@ def stop():
 def build_track_objects(self, playlist_scan_attributes: dict):
     from .. import redis_client
 
-    print("started build_tracks")
-
     playlist_scan = PlaylistScan.build_from_attributes(playlist_scan_attributes)
-
-    print(f'starting {playlist_scan.playlist.title}')
 
     # Set initial 0% State
     self.update_state(state = "PROSESSING", meta = {'progress': 0})
@@ -89,12 +85,18 @@ def build_track_objects(self, playlist_scan_attributes: dict):
         # Scan for the dates and update the web interface
         playlist_scan.get_tracks(track_dao, update_obj)
 
-        playlist_scan_dao.put_instance(playlist_scan)
+        playlist_scan_id = playlist_scan_dao.put_instance(playlist_scan)
 
     meta = update_obj.meta
 
     if update_obj.remote_stop():
         return {"result": "Interrupted"}
+
+    updated_tracks = []
+    for track in playlist_scan.tracks:
+        updated_track = track
+        updated_track.url = f"{track.url}?playlist_scan_id={playlist_scan_id}"
+        updated_tracks.append(updated_track)
 
     meta['progress_info']['task_description'] = "Exporting data to PDF"
 
@@ -107,7 +109,7 @@ def build_track_objects(self, playlist_scan_attributes: dict):
     # Generate a pdf with the playlist, track_info.
     pdf_output_path = f"/data/playlist/mixster_export_{safe_title}.pdf"
 
-    pdf = PDF(playlist_scan.tracks, {'font_path': environ.get("FONT_PATH")},
+    pdf = PDF(updated_tracks, {'font_path': environ.get("FONT_PATH")},
               redis_client=redis_client,
               status_key=f"task_status:{self.request.id}",
               update_method=self.update_state,
