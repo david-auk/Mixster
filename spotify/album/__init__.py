@@ -1,4 +1,4 @@
-from datetime import datetime
+from time import time
 
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
@@ -6,7 +6,7 @@ from spotify.artist import Artist, ArtistDAO
 
 
 class Album:
-    def __init__(self, album_id: str, release_date: datetime, artists: list[Artist]):
+    def __init__(self, album_id: str, release_date: time, artists: list[Artist]):
         self.id = album_id
         self.release_date = release_date
         self.artists = artists
@@ -22,12 +22,16 @@ class Album:
 
 class AlbumDAO:
     def __init__(self, connection: PooledMySQLConnection | MySQLConnectionAbstract, artist_dao: ArtistDAO):
+        """
+        Initialize the DAO with a database connection and related dao's
+        :param artist_dao Instance of ArtistDAO to handle artist (data) related operations
+        """
         self.connection = connection
         self.artist_dao = artist_dao
 
     def put_instance(self, album: Album):
         """
-        Inserts or updates an album and its related artist in the database.
+        Inserts or updates an Album and its related album in the database.
         :param album: An Album object containing the album data.
         """
         try:

@@ -1,51 +1,75 @@
 import json
 
-from spotapi import PublicPlaylist
+from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.pooling import PooledMySQLConnection
 
-import spotify.exeptions
 import spotify.utilities as utilities
+from spotify.exceptions import URLError, PlaylistException
+from bs4 import BeautifulSoup
 
 
 class Playlist:
-    def __init__(self, playlist_url: str):
+    def __init__(self, id: str, title: str, cover_image_url, url: str = None):
+        self.id = id
+        self.url = url if url else f"https://open.spotify.com/playlist/{self.id}"
+        self.title = title
+        self.cover_image_url = cover_image_url
+
+    @classmethod
+    def build_from_url(cls, playlist_url: str):
+
+        # Validating
+        playlist_id = cls.lint_url(playlist_url)
+
+        soup = utilities.build_soup(playlist_url)
+        return cls.build_from_soup(soup, playlist_id)
+
+    @classmethod
+    def build_from_soup(cls, soup: BeautifulSoup, playlist_id: str):
+
+        soup = cls.lint_soup(soup)
+
+        # Getting vars
+        title_dict = soup.find("meta", property = "og:title")
+        if title_dict and title_dict.has_attr("content"):
+            title = title_dict["content"]
+        else:
+            raise RuntimeError("Invalid soup, value of title not found")
+
+        image_dict = soup.find("meta", property = "og:image")
+        if image_dict and image_dict.has_attr("content"):
+            cover_image_url = image_dict["content"]
+        else:
+            raise RuntimeError("Invalid soup, value of image not found")
+
+        return cls(
+            id = playlist_id,
+            title = title,
+            cover_image_url = cover_image_url
+        )
+
+    @staticmethod
+    def lint_url(playlist_url: str) -> str:
 
         link_type, link_id = utilities.extract_spotify_type_id(playlist_url)
 
         if link_type != "playlist":
-            raise spotify.exeptions.URLError(f"Invalid Spotify URL, expected 'playlist' but got '{link_type}'")
+            raise URLError(f"Invalid Spotify URL, expected 'playlist' but got '{link_type}'")
 
-        self.id = link_id
-        self.url = playlist_url  # check with re for formatting issues
+        return link_id
 
-        self.__soup = utilities.build_soup(self.url)
+    @staticmethod
+    def lint_soup(soup: BeautifulSoup) -> BeautifulSoup:
 
         # Validating
-        if not self.__is_public(self.__soup):
-            raise spotify.exeptions.PlaylistException("Playlist not public")
+        if not Playlist.__is_public(soup):
+            raise PlaylistException("Playlist not public")
 
         # If the web gui had redirected, get new soup from that new uri
-        if not self.__is_valid_soup(self.__soup):
-            self.__soup = self.__renew_soup_from_redirecturl(self.__soup)
+        if not Playlist.__is_valid_soup(soup):
+            soup = Playlist.__renew_soup_from_redirecturl(soup)
 
-        # Getting vars
-        self.amount_of_tracks = self.__get_playlist_amount_of_tracks(self.__soup)
-        self.title = self.__soup.find("meta", property = "og:title")["content"]
-        self.image_url = self.__soup.find("meta", property = "og:image")["content"]
-
-        pub_list_obj = PublicPlaylist(self.url)
-
-        # Check if the playlist is small enough for a direct get_playlist_info method call
-        if self.amount_of_tracks > 343:
-            self.items = []
-            for page in pub_list_obj.paginate_playlist():
-                self.items += page['items']
-        else:
-            rawdata = pub_list_obj.get_playlist_info(limit = self.amount_of_tracks)
-
-            if "errors" in rawdata:
-                raise spotify.exeptions.PlaylistException(rawdata['errors'])
-
-            self.items = rawdata['data']['playlistV2']['content']['items']
+        return soup
 
     @staticmethod
     def __is_public(soup: utilities.BeautifulSoup):
@@ -84,14 +108,6 @@ class Playlist:
         else:
             raise Exception("Redirect url not found")
 
-    @staticmethod
-    def __get_playlist_amount_of_tracks(soup: utilities.BeautifulSoup):
-        result = soup.find("meta", attrs = {"name": "music:song_count"})
-        if result:
-            return int(result['content'])
-        else:
-            raise RuntimeError("Failed to get playlist length (soup search)")
-
     def get_items_uri(self):  # Todo make (option / default) all uri's unique
         track_uris = []
         for item in self.items:
@@ -100,12 +116,81 @@ class Playlist:
 
         return track_uris
 
-    def export_to_json(self):
-        return json.dumps({
+    def export_attributes(self):
+        return {
             'id': self.id,
             'url': self.url,
-            'title': self.title,
-            'amount_of_tracks': self.amount_of_tracks,
-            'image_url': self.image_url,
-            'items': self.items
-        })
+            'title': self.title
+        }
+
+
+class PlaylistDAO:
+    def __init__(self, connection: PooledMySQLConnection | MySQLConnectionAbstract):
+        """
+        Initialize the DAO with a database connection
+        """
+        self.connection = connection
+
+    def put_instance(self, playlist: Playlist):
+        """
+        Inserts or updates a playlist in the database.
+        :param playlist: A Playlist object containing the playlist data.
+        """
+        try:
+            cursor = self.connection.cursor()
+
+            # Check if the playlist exists
+            cursor.execute("SELECT id FROM playlist WHERE id = %s", (playlist.id,))
+            existing_playlist = cursor.fetchone()
+
+            if existing_playlist:
+                # Update the existing playlist
+                update_query = "UPDATE playlist SET title = %s, cover_image_url = %s WHERE id = %s"
+                cursor.execute(update_query, (playlist.title, playlist.cover_image_url, playlist.id))
+            else:
+                # Insert the new playlist
+                insert_query = "INSERT INTO playlist (id, title, cover_image_url) VALUES (%s, %s, %s)"
+                cursor.execute(insert_query, (playlist.id, playlist.title, playlist.cover_image_url))
+
+            # Commit the transaction
+            self.connection.commit()
+
+        except Exception as e:
+            print(f"Error: {e}")
+            self.connection.rollback()
+        finally:
+            cursor.close()
+
+    def get_instance(self, playlist_id: str) -> Playlist | None:
+        """
+        Retrieves a Playlist instance by its ID from the database.
+        :param playlist_id: The ID of the playlist to retrieve.
+        :return: A Playlist instance, or None if not found.
+        """
+        try:
+            cursor = self.connection.cursor(dictionary = True)
+
+            # Fetch artist data
+            query = """
+            SELECT id, title, cover_image_url
+            FROM playlist
+            WHERE id = %s
+            """
+            cursor.execute(query, (playlist_id,))
+            playlist_data = cursor.fetchone()
+
+            if not playlist_data:
+                return None  # Artist not found
+
+            # Construct and return the Artist instance
+            return Playlist(
+                id = playlist_data["id"],
+                title = playlist_data["title"],
+                cover_image_url = playlist_data["cover_image_url"]
+            )
+
+        except Exception as e:
+            print(f"Error fetching user instance: {e}")
+            return None
+        finally:
+            cursor.close()

@@ -148,9 +148,9 @@
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
-                attribute: 'playlist_obj',
+                attribute: 'playlist_scan_obj',
                 key: playlist_id,
-                get_output_method: 'export_to_json'
+                get_output_method: 'export_attributes'
             })
         })
             .then(response => response.json())

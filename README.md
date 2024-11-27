@@ -19,6 +19,9 @@ A open-source spin on the interactive music card game: Hitster
    MYSQL_DATABASE_NAME="mixster"
    MYSQL_USER_NAME="mixster_user"
    MYSQL_USER_PASSWORD='<my_password>' # Chose any password
+   
+   # Timezone (for data timestamping)
+   TIMEZONE="CET"
    ```
    
    > Spotify's credentials can be acquired from the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
