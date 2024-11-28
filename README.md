@@ -1,4 +1,14 @@
 # Mixster
+
+A open-source project that scrapes Spotify playlist/track pages to export into playing cards.
+
+these cards can be scanned by the application to play a song without seeing whats being played.
+
+## Game rules
+
+<enter gamerules here>
+
+heavily inspired by the boardgame Hitster.
 A open-source spin on the interactive music card game: Hitster
 
 ### Setup:
@@ -33,6 +43,18 @@ A open-source spin on the interactive music card game: Hitster
 
 
 4. navigate to the flask endpoint (default: http://127.0.0.1:5050/)
+
+### Use
+
+<insert use here>
+
+#### Exporting
+
+<insert exporting instructions here>
+
+#### Scanning
+
+<insert playing instructions here>
 
 ### Database / Datastorage:
 
