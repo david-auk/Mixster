@@ -11,6 +11,8 @@ these cards can be scanned by the application to play a song without seeing what
 heavily inspired by the boardgame Hitster.
 A open-source spin on the interactive music card game: Hitster
 
+## Server
+
 ### Setup:
 
 1. Create a .env file
