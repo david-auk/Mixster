@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Scanner</title>
+
+    <!-- Include the html5-qrcode.min.js -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        /* Basic styling for the scanner container */
+        #reader {
+            width: 600px;
+            margin: 20px auto;
+        }
+
+        /* Popup styling */
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            width: 300px;
+            text-align: center;
+        }
+
+        #popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        #popup img {
+            max-width: 100%;
+            margin: 10px 0;
+        }
+
+        #popup button {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #popup button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">QR Code Spotify Player</h1>
+
+    <!-- Scanner target container -->
+    <div id="reader"></div>
+
+    <!-- Popup overlay and content -->
+    <div id="popup-overlay"></div>
+    <div id="popup">
+        <p id="popup-message">Playing track of: <span id="playlist-name"></span></p>
+        <img id="playlist-image" src="" alt="Playlist Cover">
+        <div id="media-controls">
+            <button id="toggle-pause">Pause</button>
+            <button id="close-popup">Close</button>
+        </div>
+    </div>
+
+    <script>
+        let html5QrCode;
+        let scanning = true;
+        let currentTrackId = null;
+
+        // Function to parse URL and extract parameters
+        function getUrlParams(url) {
+            const params = new URL(url).searchParams;
+            return {
+                track_id: url.split('/track/')[1]?.split('?')[0],
+                scan_id: params.get('playlist_scan_id')
+            };
+        }
+
+        // Function to handle successful QR code scanning
+        function onScanSuccess(decodedText) {
+            if (!scanning) return;
+            scanning = false;
+
+            const { track_id, scan_id } = getUrlParams(decodedText);
+            currentTrackId = track_id;
+
+            // Fetch playlist data
+            fetch("/scan/get-playlist-data", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ scan_id })
+            })
+            .then(response => response.json())
+            .then(playlist_data => {
+                // Update popup with playlist info
+                document.getElementById("playlist-name").textContent = playlist_data.title;
+                document.getElementById("playlist-image").src = playlist_data.cover_image_url;
+
+                // Show popup
+                document.getElementById("popup").style.display = "block";
+                document.getElementById("popup-overlay").style.display = "block";
+
+                // Start playing track
+                fetch("/media-control/play", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ track_id })
+                });
+            })
+            .catch(err => console.error("Error fetching playlist data:", err));
+        }
+
+        // Function to resume scanning
+        function resumeScanning() {
+            document.getElementById("popup").style.display = "none";
+            document.getElementById("popup-overlay").style.display = "none";
+
+            // Pause playback
+            fetch("/media-control/pause", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            });
+
+            // Resume QR scanning
+            html5QrCode.start(
+                selectedCameraId,
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                onScanSuccess,
+                onScanFailure
+            );
+            scanning = true;
+        }
+
+        // Function to toggle pause/play
+        function togglePause() {
+            fetch("/media-control/toggle-pause", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            })
+            .catch(err => console.error("Error toggling pause:", err));
+        }
+
+        // Function to handle scan failures
+        function onScanFailure(error) {
+            console.warn("Code scan error:", error);
+        }
+
+        // Initialize scanner and camera selection
+        let selectedCameraId = null;
+        Html5Qrcode.getCameras().then(devices => {
+            if (devices && devices.length) {
+                selectedCameraId = devices[0].id;
+                html5QrCode = new Html5Qrcode("reader");
+                html5QrCode.start(
+                    selectedCameraId,
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    onScanSuccess,
+                    onScanFailure
+                );
+            } else {
+                alert("No cameras found.");
+            }
+        }).catch(err => {
+            alert("Error accessing cameras: " + err);
+        });
+
+        // Attach event listeners
+        document.getElementById("toggle-pause").addEventListener("click", togglePause);
+        document.getElementById("close-popup").addEventListener("click", resumeScanning);
+    </script>
+</body>
+</html>
