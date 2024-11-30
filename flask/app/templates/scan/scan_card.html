@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Spotify Player</title>
+
+    <!-- Include the html5-qrcode.min.js -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        /* Basic styling for the scanner container */
+        #reader {
+            width: 600px;
+            margin: 20px auto;
+        }
+
+        /* Camera selection styling */
+        #camera-selection {
+            display: flex;
+            justify-content: center;
+            margin: 10px auto;
+        }
+
+        #camera-selection select {
+            padding: 5px;
+            margin-right: 10px;
+        }
+
+        #camera-selection button {
+            padding: 5px 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #camera-selection button:hover {
+            background: #0056b3;
+        }
+
+        /* Popup styling */
+        #popup, #error-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            width: 300px;
+            text-align: center;
+        }
+
+        #popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        #popup img {
+            max-width: 100%;
+            margin: 10px 0;
+        }
+
+        #popup button, #error-popup button {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #popup button:hover, #error-popup button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">QR Code Spotify Player</h1>
+
+    <div id="notification-banner" style="display: none; background: #ffcc00; color: #000; padding: 10px; text-align: center;">
+        <span id="notification-message"></span>
+        <button style="margin-left: 10px; background: transparent; border: none; font-weight: bold; cursor: pointer;" onclick="hideNotification()">✕</button>
+    </div>
+
+    <!-- Camera selection controls -->
+    <div id="camera-selection">
+        <select id="camera-list"></select>
+        <button id="start-scanner">Start Scanner</button>
+    </div>
+
+    <!-- Scanner target container -->
+    <div id="reader"></div>
+
+    <!-- Popup overlay and content -->
+    <div id="popup-overlay"></div>
+    <div id="popup">
+        <p id="popup-message">Playing Track of: <span id="playlist-name"></span></p>
+        <img id="playlist-image" src="" alt="Playlist Cover">
+        <div id="media-controls">
+            <button id="toggle-pause">Pause / Resume</button>
+            <button id="close-popup">Close</button>
+        </div>
+    </div>
+
+    <!-- Error Popup -->
+    <div id="error-popup">
+        <p id="error-message"></p>
+        <button id="close-error-popup">Close</button>
+    </div>
+
+    <script>
+        let html5QrCode;
+        let scanning = true;
+        let currentTrackId = null;
+        let selectedCameraId = null;
+
+        function checkPreconditions() {
+            fetch("/media-control/check")
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== "success") {
+                    showNotification(data.message, data.status === "error" ? "red" : "#ffcc00");
+                }
+            })
+            .catch(err => {
+                showNotification("Failed to check preconditions. Please reload the page.", "red");
+            });
+        }
+
+        function showNotification(message, backgroundColor) {
+            const banner = document.getElementById("notification-banner");
+            const messageSpan = document.getElementById("notification-message");
+
+            messageSpan.textContent = message;
+            banner.style.backgroundColor = backgroundColor;
+            banner.style.display = "block";
+        }
+
+        function hideNotification() {
+            const banner = document.getElementById("notification-banner");
+            banner.style.display = "none";
+        }
+
+        // Function to show error popup
+        function showErrorPopup(message) {
+            document.getElementById("error-message").textContent = message;
+            document.getElementById("error-popup").style.display = "block";
+            document.getElementById("popup-overlay").style.display = "block";
+
+            // Pause scanner whilst popup is active
+            pauseScanner()
+        }
+
+        // Function to close error popup and resume scanning
+        function closeErrorPopup() {
+            document.getElementById("error-popup").style.display = "none";
+            document.getElementById("popup-overlay").style.display = "none";
+
+            // Resume QR scanning
+            resumeScanner();
+        }
+
+        // Populate camera list
+        function populateCameraList() {
+            Html5Qrcode.getCameras().then(devices => {
+                const cameraList = document.getElementById("camera-list");
+                cameraList.innerHTML = ""; // Clear existing options
+
+                if (devices && devices.length) {
+                    devices.forEach((device, index) => {
+                        const option = document.createElement("option");
+                        option.value = device.id;
+                        option.textContent = device.label || `Camera ${index + 1}`;
+                        cameraList.appendChild(option);
+                    });
+
+                    // Set the first camera as the default selection
+                    selectedCameraId = devices[0].id;
+                } else {
+                    alert("No cameras found.");
+                }
+            }).catch(err => {
+                alert("Error accessing cameras: " + err);
+            });
+        }
+
+        function pauseScanner() {
+            if (html5QrCode) {
+                html5QrCode.pause(true)
+            }
+        }
+
+        function resumeScanner() {
+            if (html5QrCode) {
+                html5QrCode.resume()
+            }
+        }
+
+        // Start the scanner with the selected camera
+        function startScanner() {
+            const cameraList = document.getElementById("camera-list");
+            selectedCameraId = cameraList.value;
+
+            // Stop existing scanner instance if active
+            //if (html5QrCode) {
+            //    console.log(html5QrCode.getState())
+            //}
+            //resumeScanner()
+
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                selectedCameraId,
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
+                },
+                onScanSuccess,
+                onScanFailure
+            ).catch(err => {
+                alert("Error starting scanner: " + err);
+            });
+
+            // Check if Spotify is ready for requests
+            checkPreconditions()
+        }
+
+        // Function to parse URL and extract parameters
+        function getUrlParams(url) {
+            const params = new URL(url).searchParams;
+            return {
+                track_id: url.split('/track/')[1]?.split('?')[0],
+                scan_id: params.get('playlist_scan_id')
+            };
+        }
+
+        // Function to handle successful QR code scanning
+        function onScanSuccess(decodedText) {
+            if (!scanning) return;
+            scanning = false
+
+            const { track_id, scan_id } = getUrlParams(decodedText);
+            currentTrackId = track_id;
+
+            // Fetch playlist data
+            fetch("/scan/get-playlist-data", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ scan_id })
+            })
+            .then(response => response.json())
+            .then(playlist_data => {
+                // Start playing track
+                fetch("/media-control/play", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ track_id })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showErrorPopup(data.error); // Show error popup for no active device
+                    } else {
+                        // Update popup with playlist info
+                        document.getElementById("playlist-name").textContent = playlist_data.title;
+                        document.getElementById("playlist-image").src = playlist_data.cover_image_url;
+
+                        // Show popup
+                        document.getElementById("popup").style.display = "block";
+                        document.getElementById("popup-overlay").style.display = "block";
+
+                        // Stop scanner whilst QR code is read and popup is active
+                        pauseScanner();
+                    }
+
+                    // After the scanner is paused, reset the bool to true
+                    scanning = true;
+                });
+            })
+            .catch(err => showErrorPopup("Error fetching playlist data."));
+        }
+
+        // Function to resume scanning
+        function closeTrackPopup() {
+            document.getElementById("popup").style.display = "none";
+            document.getElementById("popup-overlay").style.display = "none";
+
+            // Pause playback
+            fetch("/media-control/pause")
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showErrorPopup(data.error); // Show error popup for no active device
+                }
+            });
+
+            // Resume QR scanning
+            resumeScanner();
+        }
+
+        // Function to toggle pause/play
+        function togglePause() {
+            fetch("/media-control/toggle-pause")
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showErrorPopup(data.error); // Show error popup for no active device
+                }
+            });
+        }
+
+        // Function to handle scan failures
+        function onScanFailure(error) {
+            console.warn("Code scan error:", error);
+        }
+
+        // Attach event listeners
+        document.getElementById("start-scanner").addEventListener("click", startScanner);
+        document.getElementById("toggle-pause").addEventListener("click", togglePause);
+        document.getElementById("close-popup").addEventListener("click", closeTrackPopup);
+        document.getElementById("close-error-popup").addEventListener("click", closeErrorPopup);
+
+        // Populate camera list on page load
+        window.addEventListener("load", populateCameraList);
+    </script>
+</body>
+</html>

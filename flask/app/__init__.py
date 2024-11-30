@@ -2,7 +2,8 @@ import redis
 from flask import Flask
 from .auth import auth_bp
 from .export import export_bp
-from .play import play_bp
+from .scan import scan_bp
+from .media_control import media_control_bp
 from .config import Config
 import os
 from celery import Celery, Task
@@ -36,7 +37,8 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(export_bp, url_prefix='/export')
-    app.register_blueprint(play_bp, url_prefix='/play')
+    app.register_blueprint(scan_bp, url_prefix='/scan')
+    app.register_blueprint(media_control_bp, url_prefix='/media-control')
 
     return app
 

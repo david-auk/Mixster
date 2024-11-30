@@ -120,6 +120,7 @@ class Playlist:
         return {
             'id': self.id,
             'url': self.url,
+            'cover_image_url': self.cover_image_url,
             'title': self.title
         }
 
