@@ -108,7 +108,7 @@
     <!-- Popup overlay and content -->
     <div id="popup-overlay"></div>
     <div id="popup">
-        <p id="popup-message">Playing track of: <span id="playlist-name"></span></p>
+        <p id="popup-message">Playing Track of: <span id="playlist-name"></span></p>
         <img id="playlist-image" src="" alt="Playlist Cover">
         <div id="media-controls">
             <button id="toggle-pause">Pause</button>
@@ -202,14 +202,12 @@
             if (html5QrCode) {
                 html5QrCode.pause(true)
             }
-            scanning = false
         }
 
         function resumeScanner() {
             if (html5QrCode) {
                 html5QrCode.resume()
             }
-            scanning = true
         }
 
         // Start the scanner with the selected camera
@@ -286,9 +284,10 @@
 
                         // Stop scanner whilst QR code is read and popup is active
                         pauseScanner();
-
-                        scanning = true;
                     }
+
+                    // After the scanner is paused, reset the bool to true
+                    scanning = true;
                 });
             })
             .catch(err => showErrorPopup("Error fetching playlist data."));
@@ -310,7 +309,6 @@
 
             // Resume QR scanning
             resumeScanner();
-            scanning = true;
         }
 
         // Function to toggle pause/play
