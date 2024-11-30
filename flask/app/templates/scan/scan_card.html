@@ -198,15 +198,33 @@
             });
         }
 
+        // Pause and stop the video feed
         function pauseScanner() {
             if (html5QrCode) {
-                html5QrCode.pause(true)
+                html5QrCode.stop().then(() => {
+                    console.log("Scanner paused and camera stopped.");
+                }).catch(err => {
+                    console.error("Error stopping the scanner:", err);
+                });
             }
         }
 
+        // Resume and start the video feed
         function resumeScanner() {
             if (html5QrCode) {
-                html5QrCode.resume()
+                html5QrCode.start(
+                    selectedCameraId,
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 }
+                    },
+                    onScanSuccess,
+                    onScanFailure
+                ).then(() => {
+                    console.log("Scanner resumed and camera started.");
+                }).catch(err => {
+                    console.error("Error resuming the scanner:", err);
+                });
             }
         }
 
@@ -215,11 +233,13 @@
             const cameraList = document.getElementById("camera-list");
             selectedCameraId = cameraList.value;
 
-            // Stop existing scanner instance if active
-            //if (html5QrCode) {
-            //    console.log(html5QrCode.getState())
-            //}
-            //resumeScanner()
+            // If the scanner already exists, stop it first
+            if (html5QrCode) {
+                // html5QrCode.getState()
+                html5QrCode.stop().catch(err => {
+                    console.error("Error stopping existing scanner:", err);
+                });
+            }
 
             html5QrCode = new Html5Qrcode("reader");
             html5QrCode.start(
@@ -234,8 +254,8 @@
                 alert("Error starting scanner: " + err);
             });
 
-            // Check if Spotify is ready for requests
-            checkPreconditions()
+            // Check preconditions (if necessary)
+            checkPreconditions();
         }
 
         // Function to parse URL and extract parameters
