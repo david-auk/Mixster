@@ -152,6 +152,8 @@ def pause(device_id=None, playback_data=None):
 
     if not playback_data:
         playback_data = get_playback_data(access_token)
+        if not device_id:
+            device_id = get_device_id(playback_data)
 
     if playback_data["is_playing"]:
         return control_playback(access_token, control_type = "pause", device_id = device_id)
@@ -168,6 +170,8 @@ def resume(device_id=None, playback_data=None):
 
     if not playback_data:
         playback_data = get_playback_data(access_token)
+        if not device_id:
+            device_id = get_device_id(playback_data)
 
     if not playback_data["is_playing"]:
         return control_playback(access_token, control_type = "play", device_id = device_id)
