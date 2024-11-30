@@ -17,7 +17,7 @@ from .interfaces import Update
 class PlaylistScan:
     def __init__(self, playlist: Playlist, requested_by_user: User, amount_of_tracks: int, scan_completed: bool,
                  extends_playlist_scan: 'PlaylistScan' = None,
-                 id: int = None, tracks: list[Track] = [], items: dict = None):
+                 id: int = None, tracks: list[Track] = None, items: dict = None):
 
         self.id = id
 
@@ -35,7 +35,11 @@ class PlaylistScan:
         self.amount_of_tracks = amount_of_tracks
         self.extends_playlist_scan = extends_playlist_scan
 
-        self.tracks = tracks
+        if tracks:
+            self.tracks = tracks
+        else:
+            self.tracks = []
+
         self.items = items
 
         # get items if tracks are not loaded yet
@@ -124,9 +128,6 @@ class PlaylistScan:
         return items
 
     def get_tracks(self, track_dao: TrackDAO = None, update_obj: Update = None) -> list[Track]:
-
-        if len(self.tracks) == len(self.items) and self.scan_completed:
-            return self.tracks
 
         items = self.get_items()
 
