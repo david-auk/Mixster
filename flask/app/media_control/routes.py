@@ -1,5 +1,5 @@
 import requests
-from flask import render_template, request, session, redirect, url_for, jsonify
+from flask import request, session, jsonify
 
 from . import media_control_bp
 
@@ -7,12 +7,21 @@ from . import media_control_bp
 SPOTIFY_PLAYER_URL = 'https://api.spotify.com/v1/me/player'
 
 
+def get_error(response):
+    if 'application/json' in response.headers.get('Content-Type', ''):
+        response_message = {"error": response.json().get('error', {}).get('message', 'Unknown error')}
+    else:
+        response_message = {'error': 'Unknown error'}
+
+    return jsonify(response_message), 400
+
+
 def get_playback_data(access_token):
     headers = {'Authorization': f'Bearer {access_token}', }
     response = requests.get(SPOTIFY_PLAYER_URL, headers = headers)
 
     if response.status_code != 200:
-        return jsonify({"error": {response.json().get('error', {}).get('message', 'Unknown error')}}), 400
+        return get_error(response)
 
     return response.json()
 
@@ -24,11 +33,7 @@ def get_device_id(playback_data):
         return device.get("id")
 
 
-def control_playback(control_type, device_id=None):
-    access_token = session.get('access_token')
-    user_vars = session.get('user_vars')
-    if not access_token or not user_vars:
-        return jsonify({"error": "access_token is required, are you logged in?"}), 400
+def control_playback(access_token, control_type, device_id=None):
 
     if not device_id:
         device_id = get_device_id(get_playback_data(access_token))
@@ -40,9 +45,9 @@ def control_playback(control_type, device_id=None):
     response = requests.put(f"{SPOTIFY_PLAYER_URL}/{control_type}", headers = headers, json = {'device_id': device_id})
 
     if response.status_code != 200:
-        return jsonify({"error": str(response.json().get('error', {}).get('message', 'Unknown error'))}), 400
+        return get_error(response)
 
-    return jsonify({"message": "playback paused"}), 200
+    return jsonify({"message": f"playback controlled"}), 200
 
 
 @media_control_bp.route('/check', methods = ['GET'])
@@ -114,7 +119,7 @@ def play():
     response = requests.put(f"{SPOTIFY_PLAYER_URL}/play", headers = headers, json = {'uris': [track_uri]})
 
     if response.status_code != 204:
-        return jsonify({"error": str(response.json().get('error', {}).get('message', 'Unknown error'))}), 400
+        return get_error(response)
 
     return jsonify({"message": "playing track"}), 200
 
@@ -133,19 +138,38 @@ def toggle_pause():
         return jsonify({"error": "no playable device found"})
 
     if playback_data["is_playing"]:
-        pause(device_id)  # Pause playback if playing
-        return jsonify({"message": "playback paused"}), 200
+        return pause(device_id, playback_data)  # Pause playback if playing
     else:
-        resume(device_id)  # Resume playback if paused
-        return jsonify({"message": "playback resumed"}), 200
+        return resume(device_id, playback_data)  # Resume playback if paused
 
 
 @media_control_bp.route('/pause', methods = ["GET"])
-def pause(device_id=None):
-    return control_playback(device_id = device_id, control_type = "pause")
+def pause(device_id=None, playback_data=None):
+    access_token = session.get('access_token')
+    user_vars = session.get('user_vars')
+    if not access_token or not user_vars:
+        return jsonify({"error": "access_token is required, are you logged in?"}), 400
+
+    if not playback_data:
+        playback_data = get_playback_data(access_token)
+
+    if playback_data["is_playing"]:
+        return control_playback(access_token, control_type = "pause", device_id = device_id)
+
+    return jsonify({'message': 'track already paused'}), 200
 
 
 @media_control_bp.route('/resume', methods = ["GET"])
-def resume(device_id=None):
+def resume(device_id=None, playback_data=None):
+    access_token = session.get('access_token')
+    user_vars = session.get('user_vars')
+    if not access_token or not user_vars:
+        return jsonify({"error": "access_token is required, are you logged in?"}), 400
 
-    return control_playback(device_id = device_id, control_type = "play")
+    if not playback_data:
+        playback_data = get_playback_data(access_token)
+
+    if not playback_data["is_playing"]:
+        return control_playback(access_token, control_type = "play", device_id = device_id)
+
+    return jsonify({'message': 'track already playing'}), 200
