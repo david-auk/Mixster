@@ -13,7 +13,7 @@ class TrackLabel:
         self.track_info = {
             'title': self.track.title,
             'artist': self.track.album.get_artist_name(),
-            'date': str(self.track.album.release_date.year)  # Just get the year
+            'date': str(self.track.album.release_date.year)
         }
         self.style = style if style is not None else {
             'font_path': 'Arial.ttf'
@@ -142,10 +142,20 @@ class QRCode:
 
 
 class PDF:
-    labels_per_row = 3
-    labels_per_column = 4
-    label_width = 60  # Width of each label image
-    label_height = 60  # Height of each label image
+
+    size = 'large'
+
+    if size == 'large':
+        labels_per_row = 2
+        labels_per_column = 3
+        label_width = 90  # Width of each label image
+        label_height = 90  # Height of each label image
+    else:
+        labels_per_row = 3
+        labels_per_column = 4
+        label_width = 60  # Width of each label image
+        label_height = 60  # Height of each label image
+        
     margin_x = 15  # Margin from the left edge
     margin_y = 10  # Margin from the top edge
 

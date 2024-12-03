@@ -1,4 +1,5 @@
 import json
+import requests
 
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection

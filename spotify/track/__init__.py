@@ -48,14 +48,21 @@ class Track:
 
         return cls(track_id, track_title, album)
 
-    def __init__(self, track_id: str, title: str, album: Album):
+    def __init__(self, track_id: str, title: str, album: Album, artists: list[Artist]):
         self.id = track_id
         self.url = f"https://open.spotify.com/track/{self.id}"
         self.title = title
         self.album = album
+        self.artists = artists
+
+    def get_artist_name(self) -> str:
+        artist_names = []
+        for artist in self.artists:
+            artist_names.append(artist.name)
+        return ", ".join(artist_names)
 
     def __repr__(self):
-        return f"<Track(id={self.id}, title={self.title}, album={self.album}, release_date={self.album.release_date})>"
+        return f"<Track(id={self.id}, title={self.title}, album={self.album}, release_date={self.album.release_date}, artists={self.get_artist_name()})>"
 
 
 class TrackDAO:

@@ -1,11 +1,16 @@
 from datetime import time
+from urllib import parse
 
+import requests
 from bs4 import BeautifulSoup
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
 from spotapi import PublicPlaylist
 
 from spotify import utilities
+
+from album import Album
+from artist import Artist
 from spotify.playlist import Playlist, PlaylistDAO
 from spotify.track import Track, TrackDAO
 from spotify.user import User, UserDAO
@@ -15,7 +20,7 @@ from .interfaces import Update
 
 
 class PlaylistScan:
-    def __init__(self, playlist: Playlist, requested_by_user: User, amount_of_tracks: int, scan_completed: bool,
+    def __init__(self, playlist: Playlist, requested_by_user: User, amount_of_tracks: int, export_completed: bool,
                  extends_playlist_scan: 'PlaylistScan' = None,
                  id: int = None, tracks: list[Track] = None, items: dict = None):
 
@@ -31,7 +36,7 @@ class PlaylistScan:
         else:
             raise RuntimeError("Cant initialise without a valid requested_by_user instance")
 
-        self.scan_completed = scan_completed
+        self.export_completed = export_completed
         self.amount_of_tracks = amount_of_tracks
         self.extends_playlist_scan = extends_playlist_scan
 
@@ -46,6 +51,112 @@ class PlaylistScan:
         if not self.tracks and not self.items:
             self.items = None
             self.items = self.get_items()
+
+    @classmethod
+    def build_from_api(cls, playlist_id: str, access_token: str, requested_by_user: User):
+
+        def get_data(access_token, playlist_id, next=None):
+
+            # Base URL for the Spotify Get Playlist endpoint
+            url = f"https://api.spotify.com/v1/playlists/{playlist_id}"
+
+            headers = {
+                "Authorization": f"Bearer {access_token}"
+            }
+
+            if next:
+                """
+                Handle spotify next to give faulty params which now have to be extracted, modified and resent...
+                """
+
+                # Extract
+                params = parse.parse_qs(parse.urlparse(next).query)
+                url = next.split("?")[0]
+
+                offset = params['offset'][0]
+                limit = params['limit'][0]
+
+                params = {
+                    "fields": 'items(track(is_local,id,name,images,artists(name,id),album(id,name,release_date))),next',
+                    "offset": offset,
+                    "limit": limit
+                }
+            else:
+                # Specify fields to fetch only the required data
+                fields = (
+                    # Playlist info
+                    "id,name,images,tracks.total,"
+                    # Track info
+                    "tracks.items(track(is_local,id,name,images,artists(name,id),album(id,name,release_date))),"
+                    # API logistics
+                    "tracks.next"
+                )
+                params = {"fields": fields}
+
+            # Make the API request
+            response = requests.get(url, headers = headers, params = params)
+
+            if response.status_code != 200:
+                raise Exception(f"Spotify API error: {response.status_code} - {response.text}")
+
+            return response.json()
+
+        data = get_data(access_token, playlist_id)
+
+        playlist = Playlist(
+            id = data['id'],
+            title = data['name'],
+            cover_image_url = data['images'][0]['url']  # Check for better way to get the best image
+        )
+
+        amount_of_tracks = data['tracks']['total']
+
+        tracks = []
+        tracks_data = data['tracks']
+        if tracks_data['next']:
+            next_url = tracks_data['next']
+        else:
+            next_url = True  # So while loop runs once if there is no need for a second page
+        while next_url:
+            for item in tracks_data['items']:
+
+                # Skip local files
+                if item["track"]["is_local"]:
+                    continue
+
+                # Convert the artist data into instances
+                artists = []
+                for artist in item['track']['artists']:
+                    artists.append(Artist(
+                        artist_id = artist['id'],
+                        name = artist['name']
+                    ))
+
+                # Convert the album data into an instance
+                album = Album(
+                    album_id = item['track']['album']['id'],
+                    title = item['track']['album']['name'],
+                    release_date = item['track']['album']['release_date']
+                )
+
+                # Convert all the data into one track instance
+                tracks.append(Track(
+                    track_id = item['track']['id'],
+                    title = item['track']['name'],
+                    album = album,
+                    artists = artists
+                ))
+            next_url = tracks_data['next']
+            if next_url:
+                tracks_data = get_data(access_token, playlist_id, next = next_url)
+
+        return cls(
+            playlist = playlist,
+            amount_of_tracks = amount_of_tracks,
+            export_completed = False,
+            tracks = tracks,
+            requested_by_user = requested_by_user
+        )
 
     @classmethod
     def build_from_url(cls, playlist_url: str, requested_by_user: User, extends_playlist_scan: 'PlaylistScan' = None):
@@ -87,7 +198,7 @@ class PlaylistScan:
             requested_by_user = User(**attributes['requested_by_user']),
             amount_of_tracks = attributes['amount_of_tracks'],
             items = attributes['items'],
-            scan_completed = attributes['scan_completed'],
+            scan_completed = attributes['export_completed'],
             extends_playlist_scan = cls.build_from_attributes(attributes['extends_playlist_scan']) if attributes[
                 'extends_playlist_scan'] else None
         )
@@ -99,7 +210,7 @@ class PlaylistScan:
             'requested_by_user': vars(self.requested_by_user),
             'amount_of_tracks': self.amount_of_tracks,
             'items': self.items,
-            'scan_completed': self.scan_completed,
+            'export_completed': self.export_completed,
             'extends_playlist_scan': self.extends_playlist_scan.export_attributes() if self.extends_playlist_scan else None
         }
 
@@ -165,7 +276,7 @@ class PlaylistScan:
                 update_obj.get_analytics(iteration, len(items), track)
                 update_obj.update()
 
-        self.scan_completed = True
+        self.export_completed = True
 
 
 class PlaylistScanDAO:
@@ -207,28 +318,28 @@ class PlaylistScanDAO:
             if existing_playlist_scan:
                 # Update the existing playlist
                 update_query = ("UPDATE playlist_scan SET extends_playlist_scan = %s, playlist_id = %s, "
-                                "requested_by_user_id = %s, amount_of_tracks = %s, scan_completed = %s WHERE id = %s")
+                                "requested_by_user_id = %s, amount_of_tracks = %s, export_completed = %s WHERE id = %s")
                 cursor.execute(update_query, (
                     playlist_scan.extends_playlist_scan.id, playlist_scan.playlist.id,
                     playlist_scan.requested_by_user.id,
-                    playlist_scan.amount_of_tracks, int(playlist_scan.scan_completed),
+                    playlist_scan.amount_of_tracks, int(playlist_scan.export_completed),
                     playlist_scan.id))
             else:
                 if playlist_scan.extends_playlist_scan:
                     # Insert the new playlist with additional extends_playlist_scan id value
                     insert_query = ("INSERT INTO playlist_scan (extends_playlist_scan, playlist_id, "
-                                    "requested_by_user_id, amount_of_tracks, scan_completed) VALUES (%s, %s, %s, %s, %s)")
+                                    "requested_by_user_id, amount_of_tracks, export_completed) VALUES (%s, %s, %s, %s, %s)")
                     cursor.execute(insert_query, (playlist_scan.extends_playlist_scan.id, playlist_scan.playlist.id,
                                                   playlist_scan.requested_by_user.id, playlist_scan.amount_of_tracks,
-                                                  int(playlist_scan.scan_completed)))
+                                                  int(playlist_scan.export_completed)))
                 else:
                     # Insert the new playlist
                     insert_query = (
-                        "INSERT INTO playlist_scan (playlist_id, requested_by_user_id, amount_of_tracks, scan_completed) "
+                        "INSERT INTO playlist_scan (playlist_id, requested_by_user_id, amount_of_tracks, export_completed) "
                         "VALUES (%s, %s, %s, %s)")
                     cursor.execute(insert_query, (
                         playlist_scan.playlist.id, playlist_scan.requested_by_user.id, playlist_scan.amount_of_tracks,
-                        int(playlist_scan.scan_completed)))
+                        int(playlist_scan.export_completed)))
 
             # Get the just created instance id
             playlist_scan.id = self.get_latest_id()
@@ -295,7 +406,7 @@ class PlaylistScanDAO:
 
             # Fetch artist data
             query = """
-            SELECT id, playlist_id, extends_playlist_scan, requested_by_user_id, amount_of_tracks, scan_completed
+            SELECT id, playlist_id, extends_playlist_scan, requested_by_user_id, amount_of_tracks, export_completed
             FROM playlist_scan
             WHERE id = %s
             """
@@ -329,7 +440,7 @@ class PlaylistScanDAO:
                 playlist = self.playlist_dao.get_instance(playlist_scan_data["playlist_id"]),
                 requested_by_user = self.user_dao.get_instance(playlist_scan_data["requested_by_user_id"]),
                 amount_of_tracks = playlist_scan_data["amount_of_tracks"],
-                scan_completed = bool(playlist_scan_data["scan_completed"]),
+                scan_completed = bool(playlist_scan_data["export_completed"]),
                 tracks = track_instances,
                 extends_playlist_scan = self.get_instance(playlist_scan_data[
                                                               "extends_playlist_scan"]) if "extends_playlist_scan" in playlist_scan_data else None,

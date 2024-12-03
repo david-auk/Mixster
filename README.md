@@ -47,6 +47,7 @@ erDiagram
         int extends_playlist_scan FK
         int playlist_id FK "NN"
         int amount_of_tracks "NN"
+        bool export_completed "False"
         timestamp timestamp "NN"
     }
 
@@ -65,7 +66,6 @@ erDiagram
     
     album {
         int id PK "NN"
-        varchar artist_id "NN"
         int release_date "NN"
     }
     
@@ -88,6 +88,6 @@ erDiagram
     playlist_scan }|--|{ track : "scapes"
     playlist_scan ||--|| playlist_scan : "extends"
     track }|--|| album : "is_in"
-    artist }|--|{ album : "releases"
+    artist }|--|{ track : "releases"
     
 ```

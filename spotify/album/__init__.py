@@ -6,19 +6,13 @@ from spotify.artist import Artist, ArtistDAO
 
 
 class Album:
-    def __init__(self, album_id: str, release_date: time, artists: list[Artist]):
+    def __init__(self, album_id: str, title: str, release_date: time):
         self.id = album_id
+        self.title = title
         self.release_date = release_date
-        self.artists = artists
-
-    def get_artist_name(self) -> str:
-        artist_names = []
-        for artist in self.artists:
-            artist_names.append(artist.name)
-        return ", ".join(artist_names)
 
     def __repr__(self):
-        return f"<Album(id={self.id}, artists={self.artists})>"
+        return f"<Album(id={self.id}, title={self.title}, release_date={self.release_date})>"
 
 class AlbumDAO:
     def __init__(self, connection: PooledMySQLConnection | MySQLConnectionAbstract, artist_dao: ArtistDAO):
