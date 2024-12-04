@@ -44,10 +44,11 @@ Almost all information is scraped by the public spotify web interface but to acc
 erDiagram
     playlist_scan {
         int id PK "NN"
-        int extends_playlist_scan FK
         int playlist_id FK "NN"
+        varchar requested_by_user_id
         int amount_of_tracks "NN"
         bool export_completed "False"
+        int extends_playlist_scan FK
         timestamp timestamp "NN"
     }
 
@@ -61,24 +62,22 @@ erDiagram
         int id PK "NN"
         varchar title "NN"
         int album_id FK "NN"
-        timestamp timestamp "NN"
     }
     
     album {
         int id PK "NN"
+        varchar title "NN"
         int release_date "NN"
     }
     
     artist {
         int id PK "NN"
-        varchar title "NN"
+        varchar name "NN"
     }
     
     user {
         int id PK "NN"
-        varchar title "NN"
-        timestamp last_used "NN"
-        timestamp register_date "NN"
+        varchar name "NN"
     }
     
     %% Relations

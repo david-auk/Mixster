@@ -20,8 +20,6 @@ def callback():
     session['access_token'] = auth_obj.get_access_token()
     session['user_vars'] = vars(user)
 
-    print(auth_obj.get_access_token(), flush = True)
-
     # Retrieve the 'state' parameter for redirection
     next_url = request.args.get('state', '/')
     return redirect(next_url)

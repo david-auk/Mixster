@@ -9,9 +9,9 @@ from spotapi import PublicPlaylist
 
 from spotify import utilities
 
-from album import Album
-from artist import Artist
 from spotify.playlist import Playlist, PlaylistDAO
+from spotify.artist import Artist
+from spotify.album import Album
 from spotify.track import Track, TrackDAO
 from spotify.user import User, UserDAO
 from spotify import exceptions as exceptions
@@ -22,7 +22,7 @@ from .interfaces import Update
 class PlaylistScan:
     def __init__(self, playlist: Playlist, requested_by_user: User, amount_of_tracks: int, export_completed: bool,
                  extends_playlist_scan: 'PlaylistScan' = None,
-                 id: int = None, tracks: list[Track] = None, items: dict = None):
+                 id: str = None, tracks: list[Track] = None, items: dict = None):
 
         self.id = id
 
@@ -136,7 +136,7 @@ class PlaylistScan:
                 album = Album(
                     album_id = item['track']['album']['id'],
                     title = item['track']['album']['name'],
-                    release_date = item['track']['album']['release_date']
+                    release_year = int(item['track']['album']['release_date'][:4])
                 )
 
                 # Convert all the data into one track instance
@@ -294,7 +294,7 @@ class PlaylistScanDAO:
         self.user_dao = user_dao
         self.track_dao = track_dao
 
-    def put_instance(self, playlist_scan: PlaylistScan) -> int:
+    def put_instance(self, playlist_scan: PlaylistScan) -> str | None:
         """
         Inserts or updates the data of a scan capturing playlist in the database.
         :param playlist_scan: A PlaylistScan object containing the playlist scan data.
@@ -335,11 +335,12 @@ class PlaylistScanDAO:
                 else:
                     # Insert the new playlist
                     insert_query = (
-                        "INSERT INTO playlist_scan (playlist_id, requested_by_user_id, amount_of_tracks, export_completed) "
-                        "VALUES (%s, %s, %s, %s)")
+                        "INSERT INTO playlist_scan (playlist_id, requested_by_user_id, amount_of_tracks, export_completed, extends_playlist_scan) "
+                        "VALUES (%s, %s, %s, %s, %s)")
                     cursor.execute(insert_query, (
-                        playlist_scan.playlist.id, playlist_scan.requested_by_user.id, playlist_scan.amount_of_tracks,
-                        int(playlist_scan.export_completed)))
+                        playlist_scan.playlist.id, playlist_scan.requested_by_user.id, playlist_scan.amount_of_tracks, int(playlist_scan.export_completed),
+                        playlist_scan.extends_playlist_scan.id if playlist_scan.extends_playlist_scan else None)
+                        )
 
             # Get the just created instance id
             playlist_scan.id = self.get_latest_id()
@@ -348,15 +349,15 @@ class PlaylistScanDAO:
             if playlist_scan.tracks:
 
                 # only get unique tracks
-                for track in set(playlist_scan.tracks):
+                for index, track in enumerate(playlist_scan.tracks):
                     self.track_dao.put_instance(track)
 
                     # Link the track to the scan
                     relationship_query = """
-                    INSERT INTO playlist_scan_track (playlist_scan_id, track_id)
-                    VALUES (%s, %s)
+                    INSERT INTO playlist_scan_track (playlist_scan_id, track_playlist_scan_index, track_id)
+                    VALUES (%s, %s, %s)
                     """
-                    cursor.execute(relationship_query, (playlist_scan.id, track.id))
+                    cursor.execute(relationship_query, (playlist_scan.id, index, track.id))
 
             # Commit the transaction
             self.connection.commit()
@@ -370,16 +371,16 @@ class PlaylistScanDAO:
         finally:
             cursor.close()
 
-    def get_latest_id(self) -> int | None:
+    def get_latest_id(self) -> str | None:
         try:
             cursor = self.connection.cursor(dictionary = True)
 
             # Fetch artist data
             query = """
             SELECT id
-            FROM playlist_scan
-            ORDER BY id DESC 
-            LIMIT 1
+            FROM playlist_scan 
+            ORDER BY timestamp DESC 
+            LIMIT 1;
             """
             cursor.execute(query)
             playlist_scan_id = cursor.fetchone()
@@ -387,15 +388,15 @@ class PlaylistScanDAO:
             if not playlist_scan_id:
                 return None  # No scan created yet
 
-            return int(playlist_scan_id['id'])
+            return playlist_scan_id['id']
 
         except Exception as e:
-            print(f"Error fetching user instance: {e}")
+            print(f"Error fetching playlist_scan instance: {e}")
             return None
         finally:
             cursor.close()
 
-    def get_instance(self, playlist_scan_id: int) -> PlaylistScan | None:
+    def get_instance(self, playlist_scan_id: str) -> PlaylistScan | None:
         """
         Retrieves an Artist instance by its ID from the database.
         :param playlist_scan_id: The ID of the playlist_scan to retrieve.
@@ -418,29 +419,27 @@ class PlaylistScanDAO:
 
             # Fetch associated tracks
             query = """
-            SELECT t.id, t.title, t.album_id
+            SELECT t.id
             FROM track t
             INNER JOIN playlist_scan_track pst ON t.id = pst.track_id
             WHERE pst.playlist_scan_id = %s
+            ORDER BY track_playlist_scan_index
             """
             cursor.execute(query, (playlist_scan_id,))
             tracks = cursor.fetchall()
 
             # Construct artists
             track_instances = [
-                Track(
-                    track_id = track["id"],
-                    title = track["title"],
-                    album = self.track_dao.album_dao.get_instance(album_id = track["album_id"])
-                ) for track in tracks
+                self.track_dao.get_instance(track_id = track["id"]) for track in tracks
             ]
 
             # Construct and return the Track instance
             return PlaylistScan(
+                id = playlist_scan_id,
                 playlist = self.playlist_dao.get_instance(playlist_scan_data["playlist_id"]),
                 requested_by_user = self.user_dao.get_instance(playlist_scan_data["requested_by_user_id"]),
                 amount_of_tracks = playlist_scan_data["amount_of_tracks"],
-                scan_completed = bool(playlist_scan_data["export_completed"]),
+                export_completed = bool(playlist_scan_data["export_completed"]),
                 tracks = track_instances,
                 extends_playlist_scan = self.get_instance(playlist_scan_data[
                                                               "extends_playlist_scan"]) if "extends_playlist_scan" in playlist_scan_data else None,

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playlist Build</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+
+        .loading-animation {
+            width: 50px;
+            height: 50px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-text {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-animation" id="loadingSpinner"></div>
+    <div class="status-text" id="statusText">Status: Initializing...</div>
+
+    <script>
+        const playlistId = '{{ playlist_id }}';
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const statusText = document.getElementById('statusText');
+
+        function startBuild() {
+            fetch('/export/api/start-build', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playlist_id: playlistId })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const taskId = data.task_id;
+                    pollProgress(taskId);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    statusText.textContent = "Status: An error occurred during initialization.";
+                    loadingSpinner.style.display = 'none';
+                });
+        }
+
+        function pollProgress(taskId) {
+            const interval = setInterval(() => {
+                fetch('/export/api/progress', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: taskId })
+                })
+                    .then(response => response.json())
+                    .then(progressData => {
+
+                        progressDataInfo = progressData.progress_info
+
+                        statusText.textContent = `Status: ${progressDataInfo.task_description}`;
+
+                        if (progressData.state === 'SUCCESS') {
+                            clearInterval(interval);
+                            loadingSpinner.style.display = 'none';
+                            redirectToExport(progressData.playlist_scan);
+                        } else if (progressData.state === 'ERROR') {
+                            clearInterval(interval);
+                            loadingSpinner.style.display = 'none';
+                            statusText.textContent = `Status: Error - ${progressData.error_msg}`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        clearInterval(interval);
+                        statusText.textContent = "Status: An error occurred during progress polling.";
+                        loadingSpinner.style.display = 'none';
+                    });
+            }, 500);
+        }
+
+        function redirectToExport(playlistScan) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/export';
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'playlist_scan';
+            input.value = JSON.stringify(playlistScan);
+
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // Automatically start the build process
+        startBuild();
+    </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import mysql.connector
-from flask import request, jsonify, send_from_directory
+from flask import request, jsonify, send_from_directory, session
 
 from spotify.playlist import PlaylistDAO
 from spotify.playlist_scan import PlaylistScan, PlaylistScanDAO
@@ -7,7 +7,7 @@ from spotify.album import AlbumDAO
 from spotify.artist import ArtistDAO
 from spotify.playlist_scan.interfaces import UpdateWeb
 from spotify.track import TrackDAO
-from spotify.user import UserDAO
+from spotify.user import UserDAO, User
 from .cache import Cache
 from celery import shared_task
 from celery.result import AsyncResult
@@ -18,9 +18,21 @@ from os import environ
 from .backend import PDF
 
 
-@export_bp.route("/api/start", methods = ["POST"])
-def start():
+@export_bp.route("/api/start-build", methods = ["POST"])
+def start_build_scan():
+    access_token = session.get('access_token')
+    user_vars = session.get('user_vars')
+    if not access_token or not user_vars:
+        return {'error': 'User not logged in'}, 500
 
+    playlist_id = request.get_json().get('playlist_id')
+
+    task = build_playlist_scan.delay(playlist_id, access_token, user_vars)
+    return {"task_id": task.id}
+
+
+@export_bp.route("/api/start", methods = ["POST"])
+def start_export():
     # For linting
     PlaylistScan.build_from_attributes(request.get_json())
 
@@ -41,6 +53,43 @@ def stop():
     status_key = f"task_status:{task_id}"
     redis_client.set(status_key, "stop")
     return jsonify({"message": "Task has been canceled"}), 200
+
+
+@shared_task(bind = True)
+def build_playlist_scan(self, playlist_id: str, access_token: str, user_vars: dict):
+    # Do playlist url linting
+
+    # Build user from user_vars
+    user = User(**user_vars)
+
+    # Create PlaylistScan object
+    self.update_state(state = "BUILDING", meta = {'progress_info': {'task_description': 'Building Tracks using Spotify API'}})
+    try:
+        playlist_scan = PlaylistScan.build_from_api(playlist_id, access_token, user)
+    except RuntimeError as e:
+        return {'state': 'ERROR', 'error_msg': str(e)}
+
+    # Save PlaylistScan object to database
+    self.update_state(state = "PUSHING", meta = {'progress_info': {'task_description': 'Pushing Playlist data to Database'}})
+    try:
+        with mysql.connector.connect(
+                host = environ["MYSQL_HOST"],
+                user = environ["MYSQL_USER"],
+                password = environ["MYSQL_PASSWORD"],
+                database = environ["MYSQL_DATABASE"]
+        ) as connection:
+            # Create DAO instances
+            artist_dao = ArtistDAO(connection)
+            album_dao = AlbumDAO(connection, artist_dao)
+            track_dao = TrackDAO(connection, album_dao, artist_dao)
+            user_dao = UserDAO(connection)
+            playlist_dao = PlaylistDAO(connection)
+            playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)
+            playlist_scan_dao.put_instance(playlist_scan)
+    except Exception as e:
+        return {'state': 'ERROR', 'error_msg': str(e)}
+
+    self.update_state(state = "SUCCESS", meta = {'progress_info': {'task_description': 'Playlist initialised', 'playlist_scan_id': playlist_scan.id}})
 
 
 @shared_task(bind = True)
@@ -66,13 +115,14 @@ def build_track_objects(self, playlist_scan_attributes: dict):
         }
     }
 
-    update_obj = UpdateWeb(redis_client = redis_client, status_key = f"task_status:{self.request.id}", update_method = self.update_state, meta = meta)
+    update_obj = UpdateWeb(redis_client = redis_client, status_key = f"task_status:{self.request.id}",
+                           update_method = self.update_state, meta = meta)
 
     with mysql.connector.connect(
-        host = environ["MYSQL_HOST"],
-        user = environ["MYSQL_USER"],
-        password = environ["MYSQL_PASSWORD"],
-        database = environ["MYSQL_DATABASE"]
+            host = environ["MYSQL_HOST"],
+            user = environ["MYSQL_USER"],
+            password = environ["MYSQL_PASSWORD"],
+            database = environ["MYSQL_DATABASE"]
     ) as connection:
         # Create DAO instances
         artist_dao = ArtistDAO(connection)
@@ -110,10 +160,10 @@ def build_track_objects(self, playlist_scan_attributes: dict):
     pdf_output_path = f"/data/playlist/mixster_export_{safe_title}.pdf"
 
     pdf = PDF(updated_tracks, {'font_path': environ.get("FONT_PATH")},
-              redis_client=redis_client,
-              status_key=f"task_status:{self.request.id}",
-              update_method=self.update_state,
-              meta=meta)
+              redis_client = redis_client,
+              status_key = f"task_status:{self.request.id}",
+              update_method = self.update_state,
+              meta = meta)
 
     result = pdf.export(pdf_output_path)
 
@@ -127,6 +177,7 @@ def build_track_objects(self, playlist_scan_attributes: dict):
         meta['progress_info']['pdf_filename'] = pdf_output_path.split('/')[-1]
 
         return meta
+
 
 @export_bp.route("/api/progress", methods = ["POST"])
 def track_progress():

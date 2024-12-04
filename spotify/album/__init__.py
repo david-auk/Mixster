@@ -6,13 +6,13 @@ from spotify.artist import Artist, ArtistDAO
 
 
 class Album:
-    def __init__(self, album_id: str, title: str, release_date: time):
+    def __init__(self, album_id: str, title: str, release_year: int):
         self.id = album_id
         self.title = title
-        self.release_date = release_date
+        self.release_year = release_year
 
     def __repr__(self):
-        return f"<Album(id={self.id}, title={self.title}, release_date={self.release_date})>"
+        return f"<Album(id={self.id}, title={self.title}, release_year={self.release_year})>"
 
 class AlbumDAO:
     def __init__(self, connection: PooledMySQLConnection | MySQLConnectionAbstract, artist_dao: ArtistDAO):
@@ -40,25 +40,13 @@ class AlbumDAO:
             if not existing_album:
                 # Insert the new album
                 insert_query = """
-                INSERT INTO album (id, release_date)
-                VALUES (%s, %s)
+                INSERT INTO album (id, title, release_year)
+                VALUES (%s, %s, %s)
                 """
-                cursor.execute(insert_query, (album.id, album.release_date))
+                cursor.execute(insert_query, (album.id, album.title, album.release_year))
 
-                for artist in album.artists:
-
-                    # Make sure the artist exists
-                    self.artist_dao.put_instance(artist)
-
-                    # Link the artist to the album
-                    relationship_query = """
-                    INSERT INTO artist_album (artist_id, album_id)
-                    VALUES (%s, %s)
-                    """
-                    cursor.execute(relationship_query, (artist.id, album.id))
-
-            # Commit the transaction
-            self.connection.commit()
+                # Commit the transaction
+                self.connection.commit()
 
         except Exception as e:
             print(f"Error: {e}")
@@ -77,7 +65,7 @@ class AlbumDAO:
 
             # Fetch album data
             query = """
-            SELECT id, release_date
+            SELECT id, title, release_year
             FROM album
             WHERE id = %s
             """
@@ -87,31 +75,12 @@ class AlbumDAO:
             if not album_data:
                 return None  # Album not found
 
-            # Fetch associated artists
-            query = """
-                    SELECT ar.id, ar.name
-                    FROM artist ar
-                    INNER JOIN artist_album aa ON ar.id = aa.artist_id
-                    WHERE aa.album_id = %s
-                    """
-            cursor.execute(query, (album_id,))
-            artists = cursor.fetchall()
-
-            # Construct artists
-            artist_instances = [
-                Artist(
-                    artist_id = artist["id"],
-                    name = artist["name"]
-                ) for artist in artists
-            ]
-
             # Construct and return the Album instance
-            album = Album(
+            return Album(
                 album_id = album_data["id"],
-                release_date = album_data["release_date"],
-                artists = artist_instances  # Updated to handle multiple artists
+                title = album_data["title"],
+                release_year = album_data["release_year"]
             )
-            return album
 
         except Exception as e:
             print(f"Error fetching album instance: {e}")
