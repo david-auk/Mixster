@@ -43,8 +43,8 @@
 <body>
     <!-- Playlist Preview -->
     <div class="playlist-preview">
-        <h1>{{ playlist_title }}</h1>
-        <img src="{{ image_url }}" alt="Playlist Image" class="playlist-image" style="max-width: 100px; height: auto;">
+        <h1 id="playlist-title">Loading...</h1>
+        <img src="" alt="Playlist Image" id="playlist-image" class="playlist-image" style="max-width: 100px; height: auto;">
         <p id="total_tracks">Total Tracks: N/A</p>
         <p id="total_pages">Total Pages: N/A</p>
 
@@ -80,12 +80,11 @@
         const download_button = document.getElementById('download_btn');
 
         const status_text = document.getElementById('status');
-        const total_tracks_text = document.getElementById('total_tracks');
-        const total_pages_text = document.getElementById('total_pages');
-        const total_tracks_value = "{{ playlist_amount_of_tracks }}";
-        total_tracks_text.textContent = `Total Tracks: ${total_tracks_value}`;
-        const total_pages_value = "{{ total_pages }}";
-        total_pages_text.textContent = `Total Pages: ${total_pages_value}`;
+
+        const playlistTitleElement = document.getElementById('playlist-title');
+        const playlistImageElement = document.getElementById('playlist-image');
+        const totalTracksElement = document.getElementById('total_tracks');
+        const totalPagesElement = document.getElementById('total_pages');
 
         const song_info = document.querySelector('.current-song-info');
 
@@ -93,20 +92,39 @@
         const track_artist_element = document.getElementById('track-artist');
         const time_left_estimate_element = document.getElementById('time-left-estimate');
 
-        // Hide the song info and progress bar until button is clicked
-        //stop_button.style.visibility = 'hidden';
+        // Hide Info until relevant
         stop_button.style.display = 'none';
         download_button.style.display = 'none';
-
         time_left_estimate_element.style.visibility = 'hidden';
         song_info.style.visibility = 'hidden';
         progres.style.visibility = 'hidden';
+        playlistImageElement.style.visibility = 'hidden';
 
-        // Get the json data about the playlist to export
-        //const playlist = JSON.parse(' playlist | tojson | safe ');
-        const playlist_id = '{{ playlist_id }}'
-
+        // Get the json data about the playlist_scan_id to export
+        const playlist_scan_id = '{{ playlist_scan_id }}'
         let progress_val = 0;
+
+        // Fetch playlist details when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch("/export/api/get-playlist-details", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({playlist_scan_id: playlist_scan_id})
+            })
+                .then(response => response.json())
+                .then(playlistData => {
+                    // Update DOM with fetched details
+                    playlistTitleElement.textContent = playlistData.title || "Unknown Playlist";
+                    playlistImageElement.src = playlistData.cover_image_url || "placeholder.jpg";
+                    playlistImageElement.style.visibility = "visible";
+
+                    totalTracksElement.textContent = `Total Tracks: ${playlistData.total_tracks || 'N/A'}`;
+                    totalPagesElement.textContent = `Total Pages: ${playlistData.total_pages || 'N/A'}`;
+                })
+                .catch(error => {
+                    console.error("Failed to fetch playlist details:", error);
+                });
+        });
 
         function updateProgressBar(percent) {
             progress_val = percent
@@ -121,150 +139,120 @@
         }
 
         function updateLoadingText(data) {
-
             track_name_element.textContent = `Track Name: ${data.track_name}`;
             track_artist_element.textContent = `Artist: ${data.track_artist}`;
             time_left_estimate_element.textContent = `Time left: ${data.time_left_estimate}`;
-            total_pages_text.textContent = `Total Pages: ${data.total_pages}`
-
-            // Show status and un-hide if it is hidden
-            status_text.textContent = data.task_description
-            if (data.iteration === 0) {
-                // First iteration
-                total_tracks_text.textContent = `Total Tracks: ${total_tracks_value}`
-            } else {
-                if (data.iteration === total_tracks_value){
-                    //Final iteration
-                    time_left_estimate_element.textContent = "Time left: 0:00:00"
-                }
-                total_tracks_text.textContent = `Total Tracks: (${data.iteration}/${total_tracks_value})`
-            }
+            totalPagesElement.textContent = `Total Pages: ${data.total_pages}`
+            totalTracksElement.textContent = `Total Tracks: ${data.total_tracks}`
         }
         function isEmptyObject(obj){
             return JSON.stringify(obj) === '{}'
         }
 
-        fetch("/export/api/cache", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                attribute: 'playlist_scan_obj',
-                key: playlist_id,
-                get_output_method: 'export_attributes'
+        export_button.addEventListener("click", () => {
+            updateProgressBar(0);
+
+            song_info.style.visibility = 'visible';
+            progres.style.visibility = 'visible';
+
+            export_button.setAttribute("disabled", "disabled");
+
+            fetch("/export/api/start-export", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body:  JSON.stringify({playlist_scan_id: playlist_scan_id})
             })
-        })
-            .then(response => response.json())
-            .then(playlist_data => {
-
-                export_button.addEventListener("click", () => {
-                updateProgressBar(0);
-
-                song_info.style.visibility = 'visible';
-                progres.style.visibility = 'visible';
-
-                export_button.setAttribute("disabled", "disabled");
-
-                fetch("/export/api/start", {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(playlist_data)
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        let interval = setInterval(() => {
-                            fetch("/export/api/progress", {
-                                method: "POST",
-                                headers: {"Content-Type": "application/json"},
-                                body: JSON.stringify({task_id: data.task_id})
-                            })
-                                .then(response => response.json())
-                                .then(result => {
-                                    if (result.state === "ERROR") {
-                                        clearInterval(interval);
-                                        alert(`An error occurred during export.\nError message: ${result.error_msg}`);
-                                        window.location.href = "/export";
-                                    }else {
-                                        // Reset the progress bar if a new state is triggerd
-                                        if (result.progress < progress_val){
-                                            progress_bar.classList.remove("bg-success");
-                                        }
-                                        updateProgressBar(result.progress)
-                                        if (!isEmptyObject(result.progress_info)) {
-                                            if (time_left_estimate_element.style.visibility === 'hidden'){
-                                                time_left_estimate_element.style.visibility = 'visible';
-                                            }
-                                            updateLoadingText(result.progress_info)
-                                        }
-                                        if (result.state === "EXPORTING"){
-                                            // All the data is scraped
-                                            song_info.style.visibility = 'hidden';
-                                            //stop_button.style.display = 'none';
-                                        } else if (result.state === "SUCCESS") {
-                                            clearInterval(interval);
-                                            fetch("/export/api/progress", {
-                                                method: "POST",
-                                                headers: {"Content-Type": "application/json"},
-                                                body: JSON.stringify({task_id: data.task_id})
-                                            })
-                                                .then(response => response.json())
-                                                .then(result => {
-                                                    updateLoadingText(result.progress_info)
-                                                    // Hide buttons
-                                                    export_button.style.display = 'none';
-                                                    stop_button.style.display = 'none';
-                                                    export_button.removeAttribute("disabled");
-                                                    time_left_estimate_element.style.display = 'none';
-
-                                                    // Show Download button
-                                                    download_button.style.display = 'inline-block';
-                                                    download_button.removeEventListener("click", handleDownload); // Remove any existing event listener
-                                                    download_button.addEventListener("click", handleDownload);
-
-                                                    function handleDownload() {
-                                                        // Create a hidden link element for download
-                                                        const link = document.createElement("a");
-                                                        link.href = `/export/data/playlist/${result.progress_info.pdf_filename}`;
-
-                                                        // Trigger the download
-                                                        document.body.appendChild(link);
-                                                        link.click();
-                                                        document.body.removeChild(link);
-                                                    }
-                                                })
-                                        }
-                                    }
-                                })
-                        }, 500) // Check every 1/2 of a second
-                        stop_button.style.display = 'inline-block';
-                        stop_button.addEventListener("click", () => {
-                            // Stop backend
-                            fetch("/export/api/stop", {
-                                method: "POST",
-                                headers: {"Content-Type": "application/json"},
-                                body: JSON.stringify({task_id: data.task_id})
-                            })
-                            clearInterval(interval);
-
-                            // Stop frontend
-                            song_info.style.visibility = 'hidden';
-                            time_left_estimate_element.style.visibility = 'hidden';
-                            progres.style.visibility = 'hidden';
-                            updateProgressBar(0);
-                            export_button.removeAttribute("disabled");
-                            stop_button.style.display = 'none';
-
-                            data.track_name = "N/A";
-                            data.track_artist = "N/A";
-                            data.time_left_estimate = "N/A";
-                            data.total_pages = total_pages_value;
-                            data.iteration = 0;
-                            data.task_description = "";
-
-                            updateLoadingText(data)
+                .then(response => response.json())
+                .then(data => {
+                    let interval = setInterval(() => {
+                        fetch("/export/api/progress", {
+                            method: "POST",
+                            headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify({task_id: data.task_id})
                         })
+                            .then(response => response.json())
+                            .then(result => {
+                                if (result.state === "ERROR") {
+                                    clearInterval(interval);
+                                    alert(`An error occurred during export.\nError message: ${result.error_msg}`);
+                                    window.location.href = "/export";
+                                } else {
+                                    // Reset the progress bar if a new state is triggerd
+                                    if (result.progress < progress_val) {
+                                        progress_bar.classList.remove("bg-success");
+                                    }
+                                    updateProgressBar(result.progress)
+                                    if (!isEmptyObject(result.progress_info)) {
+                                        if (time_left_estimate_element.style.visibility === 'hidden') {
+                                            time_left_estimate_element.style.visibility = 'visible';
+                                        }
+                                        updateLoadingText(result.progress_info)
+                                    }
+                                    if (result.state === "SUCCESS") {
+                                        clearInterval(interval);
+                                        fetch("/export/api/progress", {
+                                            method: "POST",
+                                            headers: {"Content-Type": "application/json"},
+                                            body: JSON.stringify({task_id: data.task_id})
+                                        })
+                                            .then(response => response.json())
+                                            .then(result => {
+                                                updateLoadingText(result.progress_info)
+                                                // Hide buttons
+                                                export_button.style.display = 'none';
+                                                stop_button.style.display = 'none';
+                                                export_button.removeAttribute("disabled");
+                                                time_left_estimate_element.style.display = 'none';
+
+                                                // Show Download button
+                                                download_button.style.display = 'inline-block';
+                                                download_button.removeEventListener("click", handleDownload); // Remove any existing event listener
+                                                download_button.addEventListener("click", handleDownload);
+
+                                                function handleDownload() {
+                                                    // Create a hidden link element for download
+                                                    const link = document.createElement("a");
+                                                    link.href = `/export/data/playlist/${result.progress_info.pdf_filename}`;
+
+                                                    // Trigger the download
+                                                    document.body.appendChild(link);
+                                                    link.click();
+                                                    document.body.removeChild(link);
+                                                }
+                                            })
+                                    }
+                                }
+                            })
+                    }, 500) // Check every 1/2 of a second
+                    stop_button.style.display = 'inline-block';
+                    stop_button.addEventListener("click", () => {
+                        // Stop backend
+                        fetch("/export/api/stop", {
+                            method: "POST",
+                            headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify({task_id: data.task_id})
+                        })
+                        clearInterval(interval);
+
+                        // Stop frontend
+                        song_info.style.visibility = 'hidden';
+                        time_left_estimate_element.style.visibility = 'hidden';
+                        progres.style.visibility = 'hidden';
+                        updateProgressBar(0);
+                        export_button.removeAttribute("disabled");
+                        stop_button.style.display = 'none';
+
+                        data.track_name = "N/A";
+                        data.track_artist = "N/A";
+                        data.time_left_estimate = "N/A";
+                        data.total_pages = total_pages_value;
+                        data.iteration = 0;
+                        data.task_description = "";
+
+                        updateLoadingText(data)
                     })
                 })
-            })
+        })
     </script>
 </body>
 </html>

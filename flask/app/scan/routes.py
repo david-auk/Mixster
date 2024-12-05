@@ -36,7 +36,7 @@ def stop():
         # Create DAO instances
         artist_dao = ArtistDAO(connection)
         album_dao = AlbumDAO(connection, artist_dao)
-        track_dao = TrackDAO(connection, album_dao)
+        track_dao = TrackDAO(connection, album_dao, artist_dao)
         user_dao = UserDAO(connection)
         playlist_dao = PlaylistDAO(connection)
         playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)

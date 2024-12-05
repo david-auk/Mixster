@@ -81,7 +81,7 @@
                         if (progressData.state === 'SUCCESS') {
                             clearInterval(interval);
                             loadingSpinner.style.display = 'none';
-                            redirectToExport(progressData.playlist_scan);
+                            redirectToExport(progressDataInfo.playlist_scan_id);
                         } else if (progressData.state === 'ERROR') {
                             clearInterval(interval);
                             loadingSpinner.style.display = 'none';
@@ -97,15 +97,15 @@
             }, 500);
         }
 
-        function redirectToExport(playlistScan) {
+        function redirectToExport(playlistScanID) {
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = '/export';
 
             const input = document.createElement('input');
             input.type = 'hidden';
-            input.name = 'playlist_scan';
-            input.value = JSON.stringify(playlistScan);
+            input.name = 'playlist_scan_id';
+            input.value = playlistScanID;
 
             form.appendChild(input);
             document.body.appendChild(form);
