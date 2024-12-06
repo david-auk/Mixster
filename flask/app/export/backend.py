@@ -142,7 +142,6 @@ class QRCode:
 
 
 class PDF:
-
     size = 'default'
 
     layout = {
@@ -159,14 +158,14 @@ class PDF:
             'label_height': 60  # Height of each label image
         }
     }
-        
+
     margin_x = 15  # Margin from the left edge
     margin_y = 10  # Margin from the top edge
 
     @staticmethod
     def __get_tracks_per_page(layout_style: str):
         if layout_style not in PDF.layout:
-            raise RuntimeError("Size-layout option not recognised")
+            raise RuntimeError(f"Layout-style {layout_style} option not recognised")
 
         return PDF.layout[layout_style]['labels_per_row'] * PDF.layout[layout_style]['labels_per_column']
 
@@ -182,10 +181,15 @@ class PDF:
                  meta: dict = None, layout_style: str = "default"):
         self.pdf = FPDF(orientation = 'P', unit = 'mm', format = 'A4')
         self.track_list = track_list
-        self.total_pages = self.get_total_pages(len(track_list), layout_style)
+
+        if layout_style not in PDF.layout:
+            raise RuntimeError(f"Layout-style {layout_style} option not recognised")
+
+        self.layout_style = layout_style
+        self.total_pages = self.get_total_pages(len(track_list), self.layout_style)
 
         # Style linting here.
-        if not "font_path" in style:
+        if "font_path" not in style:
             raise RuntimeError("Font path not found in style")
 
         if update_method is not None and meta is None:
@@ -203,6 +207,11 @@ class PDF:
         self.style = style
 
     def export(self, output_path):
+
+        labels_per_row = PDF.layout[self.layout_style]['labels_per_row']
+        labels_per_column = PDF.layout[self.layout_style]['labels_per_column']
+        label_width = PDF.layout[self.layout_style]['label_width']
+        label_height = PDF.layout[self.layout_style]['label_height']
 
         page_count = 0
         runtimes = []
@@ -232,7 +241,7 @@ class PDF:
             return False
 
         total_tracks = len(self.track_list)
-        tracks_per_page = self.labels_per_row * self.labels_per_column
+        tracks_per_page = labels_per_row * labels_per_column
 
         for i in range(0, total_tracks, tracks_per_page):
             # Add a page for TrackLabels
@@ -251,16 +260,16 @@ class PDF:
                     break  # No more tracks to add
 
                 # Calculate row and column position
-                row = index // PDF.labels_per_row
-                col = index % PDF.labels_per_row
-                x = PDF.margin_x + col * PDF.label_width
-                y = PDF.margin_y + row * PDF.label_height
+                row = index // labels_per_row
+                col = index % labels_per_row
+                x = PDF.margin_x + col * label_width
+                y = PDF.margin_y + row * label_height
 
                 # Create and place the TrackLabel image
                 track = self.track_list[track_index]
                 track_label = TrackLabel(track, style = self.style)
                 track_label_image = track_label.export()
-                self.pdf.image(track_label_image, x = x, y = y, w = PDF.label_width, h = PDF.label_height)
+                self.pdf.image(track_label_image, x = x, y = y, w = label_width, h = label_height)
 
             update(page_count, start_time)
 
@@ -279,15 +288,15 @@ class PDF:
                     break  # No more tracks to add
 
                 # Calculate mirrored row and column position
-                row = index // PDF.labels_per_row
-                col = (PDF.labels_per_row - 1) - (index % PDF.labels_per_row)  # Mirror horizontally
-                x = PDF.margin_x + col * PDF.label_width
-                y = PDF.margin_y + row * PDF.label_height
+                row = index // labels_per_row
+                col = (labels_per_row - 1) - (index % labels_per_row)  # Mirror horizontally
+                x = PDF.margin_x + col * label_width
+                y = PDF.margin_y + row * label_height
 
                 # Create and place the QR code image
                 track = self.track_list[track_index]
                 qr_code_image = QRCode.generate(track.url)
-                self.pdf.image(qr_code_image, x = x, y = y, w = PDF.label_width, h = PDF.label_height)
+                self.pdf.image(qr_code_image, x = x, y = y, w = label_width, h = label_height)
 
             update(page_count, start_time)
 

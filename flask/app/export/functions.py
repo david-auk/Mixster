@@ -1,14 +1,12 @@
 import mysql.connector
-from flask import request, jsonify, send_from_directory, session
+from flask import request, jsonify, session
 
 from spotify.playlist import PlaylistDAO, Playlist
 from spotify.playlist_scan import PlaylistScan, PlaylistScanDAO
 from spotify.album import AlbumDAO
 from spotify.artist import ArtistDAO
-from spotify.playlist_scan.interfaces import UpdateWeb
 from spotify.track import TrackDAO
 from spotify.user import UserDAO, User
-from .cache import Cache
 from celery import shared_task
 from celery.result import AsyncResult
 from . import export_bp
@@ -33,12 +31,15 @@ def start_build_scan():
 
 @export_bp.route("/api/start-export", methods = ["POST"])
 def start_export():
-
     playlist_scan_id = request.json.get("playlist_scan_id")
     if not playlist_scan_id:
         return jsonify({"error": "playlist_scan_id is required"}), 400
 
-    task = build_pdf.delay(playlist_scan_id)
+    config = request.json.get("config")
+    if not config:
+        return jsonify({"error": "config json is required"}), 400
+
+    task = build_pdf.delay(playlist_scan_id, config)
     return {"task_id": task.id}
 
 
@@ -58,10 +59,14 @@ def stop():
 
 
 @export_bp.route("/api/get-playlist-details", methods = ["POST"])
-def get_playlist_details(config: dict):
+def get_playlist_details():
     playlist_scan_id = request.json.get("playlist_scan_id")
     if not playlist_scan_id:
         return jsonify({"error": "playlist_scan_id is required"}), 400
+
+    config = request.json.get("config")
+    if not config:
+        return jsonify({"error": "config json is required"}), 400
 
     with mysql.connector.connect(
             host = environ["MYSQL_HOST"],

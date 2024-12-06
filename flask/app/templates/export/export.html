@@ -100,6 +100,8 @@
         song_info.style.visibility = 'hidden';
         progres.style.visibility = 'hidden';
         playlistImageElement.style.visibility = 'hidden';
+        totalPagesElement.style.visibility = 'hidden';
+        totalTracksElement.style.visibility = 'hidden';
 
         // Get the json data about the playlist_scan_id to export
         const playlist_scan_id = '{{ playlist_scan_id }}'
@@ -144,11 +146,20 @@
             status_text.textContent = data.task_description; // Task description is hidden with "" so no use for an if seeing that is an usecase
         }
 
+        function buildConfig() {
+            return {'pdf_layout_style': 'default'}
+        }
+
+        // Todo make into func so details can be refreshed based on updating config
+
         // Fetch playlist details when the page loads
         fetch("/export/api/get-playlist-details", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({playlist_scan_id: playlist_scan_id})
+            body: JSON.stringify({
+                playlist_scan_id: playlist_scan_id,
+                config: buildConfig()
+            })
         })
             .then(response => response.json())
             .then(playlistData => {
@@ -158,7 +169,11 @@
                 playlistImageElement.style.visibility = "visible";
 
                 totalTracksElement.textContent = `Total Tracks: ${playlistData.amount_of_tracks || 'N/A'}`;
+                totalTracksElement.style.visibility = "visible"
+
                 totalPagesElement.textContent = `Total Pages: ${playlistData.total_pages || 'N/A'}`;
+                totalPagesElement.style.visibility = "visible"
+
                 totalPagesVal = playlistData.total_pages
                 exportCompleted = Boolean(playlistData.export_completed)
 
@@ -201,7 +216,10 @@
                         fetch("/export/api/start-export", {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({playlist_scan_id: playlist_scan_id})
+                            body: JSON.stringify({
+                                playlist_scan_id: playlist_scan_id,
+                                config: buildConfig()
+                            })
                         })
                             .then(response => response.json())
                             .then(data => {
