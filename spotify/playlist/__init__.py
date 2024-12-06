@@ -1,4 +1,5 @@
 import json
+import requests
 
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.pooling import PooledMySQLConnection
@@ -189,6 +190,30 @@ class PlaylistDAO:
                 title = playlist_data["title"],
                 cover_image_url = playlist_data["cover_image_url"]
             )
+
+        except Exception as e:
+            print(f"Error fetching user instance: {e}")
+            return None
+        finally:
+            cursor.close()
+
+    def get_instance_from_scan(self, playlist_scan_id: str) -> Playlist | None:
+        try:
+            cursor = self.connection.cursor(dictionary = True)
+
+            # Fetch artist data
+            query = """
+            SELECT playlist_id
+            FROM playlist_scan
+            WHERE id = %s
+            """
+            cursor.execute(query, (playlist_scan_id,))
+            playlist_scan_data = cursor.fetchone()
+
+            if not playlist_scan_data:
+                return None  # Scan not found
+
+            return self.get_instance(playlist_scan_data['playlist_id'])
 
         except Exception as e:
             print(f"Error fetching user instance: {e}")

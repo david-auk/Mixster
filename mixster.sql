@@ -16,12 +16,12 @@ CREATE TABLE playlist (
 
 -- Create the `playlist_scan` table
 CREATE TABLE playlist_scan (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    extends_playlist_scan INT DEFAULT NULL,
+    id UUID NOT NULL DEFAULT UUID() PRIMARY KEY,
     playlist_id VARCHAR(255) NOT NULL,
     requested_by_user_id VARCHAR(255) NOT NULL,
     amount_of_tracks INT NOT NULL,
-    scan_completed BOOLEAN NOT NULL,
+    export_completed BOOLEAN NOT NULL,
+    extends_playlist_scan UUID DEFAULT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (extends_playlist_scan) REFERENCES playlist_scan(id) ON DELETE CASCADE,
     FOREIGN KEY (requested_by_user_id) REFERENCES user(id) ON DELETE CASCADE,
@@ -37,16 +37,8 @@ CREATE TABLE artist (
 -- Create the `album` table
 CREATE TABLE album (
     id VARCHAR(255) PRIMARY KEY,
-    release_date DATETIME NOT NULL
-);
-
--- Create the relationship between `artist` and `album` (many-to-many)
-CREATE TABLE artist_album (
-    artist_id VARCHAR(255) NOT NULL,
-    album_id VARCHAR(255) NOT NULL,
-    PRIMARY KEY (artist_id, album_id),
-    FOREIGN KEY (artist_id) REFERENCES artist(id) ON DELETE CASCADE,
-    FOREIGN KEY (album_id) REFERENCES album(id) ON DELETE CASCADE
+    title VARCHAR(255) NOT NULL,
+    release_year INT NOT NULL
 );
 
 -- Create the `track` table
@@ -57,11 +49,21 @@ CREATE TABLE track (
     FOREIGN KEY (album_id) REFERENCES album(id) ON DELETE CASCADE
 );
 
+-- Create the relationship between `artist` and `track` (many-to-many)
+CREATE TABLE artist_track (
+    artist_id VARCHAR(255) NOT NULL,
+    track_id VARCHAR(255) NOT NULL,
+    PRIMARY KEY (artist_id, track_id),
+    FOREIGN KEY (artist_id) REFERENCES artist(id) ON DELETE CASCADE,
+    FOREIGN KEY (track_id) REFERENCES track(id) ON DELETE CASCADE
+);
+
 -- Create the relationship between `playlist_scan` and `track` (many-to-many)
 CREATE TABLE playlist_scan_track (
-    id INT PRIMARY KEY AUTO_INCREMENT, # As its own column to support the same track id in the same playlist.
-    playlist_scan_id INT NOT NULL,
+    playlist_scan_id UUID NOT NULL,
     track_id VARCHAR(255) NOT NULL,
+    track_playlist_scan_index INT NOT NULL,
+    PRIMARY KEY (playlist_scan_id, track_id, track_playlist_scan_index),
     FOREIGN KEY (playlist_scan_id) REFERENCES playlist_scan(id) ON DELETE CASCADE,
     FOREIGN KEY (track_id) REFERENCES track(id) ON DELETE CASCADE
 );
