@@ -18,11 +18,12 @@ def export_playlist():
 
     user = User(**user_vars)
 
-    if request.method == "POST" and "playlist_scan_id" in request.form:
-        playlist_scan_id = request.form.get("playlist_scan_id")
-        return render_template("export/export.html", playlist_scan_id=playlist_scan_id)
-
     return redirect('/export/check')
+
+
+@export_bp.route('/scan/<scan_id>')
+def scan(scan_id):
+    return render_template("export/export.html", playlist_scan_id=scan_id)
 
 
 @export_bp.route('/check', methods = ["GET", "POST"])

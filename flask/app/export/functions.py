@@ -1,7 +1,7 @@
 import mysql.connector
 from flask import request, jsonify, send_from_directory, session
 
-from spotify.playlist import PlaylistDAO
+from spotify.playlist import PlaylistDAO, Playlist
 from spotify.playlist_scan import PlaylistScan, PlaylistScanDAO
 from spotify.album import AlbumDAO
 from spotify.artist import ArtistDAO
@@ -58,7 +58,7 @@ def stop():
 
 
 @export_bp.route("/api/get-playlist-details", methods = ["POST"])
-def get_playlist_details():
+def get_playlist_details(config: dict):
     playlist_scan_id = request.json.get("playlist_scan_id")
     if not playlist_scan_id:
         return jsonify({"error": "playlist_scan_id is required"}), 400
@@ -69,11 +69,20 @@ def get_playlist_details():
             password = environ["MYSQL_PASSWORD"],
             database = environ["MYSQL_DATABASE"]
     ) as connection:
+        artist_dao = ArtistDAO(connection)
+        album_dao = AlbumDAO(connection, artist_dao)
+        track_dao = TrackDAO(connection, album_dao, artist_dao)
+        user_dao = UserDAO(connection)
         playlist_dao = PlaylistDAO(connection)
-        playlist = playlist_dao.get_instance_from_scan(playlist_scan_id)
+        playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)
 
-    if playlist:
-        return jsonify(playlist.export_attributes()), 200
+        attributes = playlist_scan_dao.get_attributes(playlist_scan_id, (
+            'p.title', 'p.cover_image_url', 'ps.amount_of_tracks', 'ps.export_completed'
+        ))
+        attributes['total_pages'] = PDF.get_total_pages(attributes['amount_of_tracks'], config.get('pdf_layout_style', 'default'))
+
+    if attributes:
+        return jsonify(attributes), 200
     else:
         return jsonify({"error": "Error getting playlist object, is the id correct?"}), 400
 
@@ -81,6 +90,13 @@ def get_playlist_details():
 @shared_task(bind = True)
 def build_playlist_scan(self, playlist_id: str, access_token: str, user_vars: dict):
     # Do playlist url linting
+    self.update_state(state = "BUILDING",
+                      meta = {'progress_info': {'task_description': 'Getting Playlist info'}})
+
+    try:
+        playlist = Playlist.build_from_url(f"https://open.spotify.com/playlist/{playlist_id}")
+    except Exception as e:
+        return {'state': 'ERROR', 'error_msg': str(e)}
 
     # Build user from user_vars
     user = User(**user_vars)
@@ -88,7 +104,7 @@ def build_playlist_scan(self, playlist_id: str, access_token: str, user_vars: di
     # Create PlaylistScan object
     self.update_state(state = "BUILDING", meta = {'progress_info': {'task_description': 'Building Tracks using Spotify API'}})
     try:
-        playlist_scan = PlaylistScan.build_from_api(playlist_id, access_token, user)
+        playlist_scan = PlaylistScan.build_from_api(playlist.id, access_token, user)
     except RuntimeError as e:
         return {'state': 'ERROR', 'error_msg': str(e)}
 
@@ -116,8 +132,10 @@ def build_playlist_scan(self, playlist_id: str, access_token: str, user_vars: di
 
 
 @shared_task(bind = True)
-def build_pdf(self, playlist_scan_id):
+def build_pdf(self, playlist_scan_id: str, config: dict):
     from .. import redis_client
+
+    # Lint build_config
 
     meta = {
         'progress': 0,
@@ -127,7 +145,8 @@ def build_pdf(self, playlist_scan_id):
             'track_artist': "N/A",
             'iteration': 0,
             'time_left_estimate': "N/A",
-            'total_pages': 'N/A'
+            'total_tracks': '',
+            'total_pages': ''
         }
     }
 
@@ -150,8 +169,27 @@ def build_pdf(self, playlist_scan_id):
 
         playlist_scan = playlist_scan_dao.get_instance(playlist_scan_id)
 
-        total_pages = PDF.get_total_pages(playlist_scan.amount_of_tracks)
+        # TODO Check if this setup works
+        if config.get("extends", None):
+            extends_playlist_scan = playlist_scan_dao.get_instance(config['extends'])
+            playlist_scan.extends_playlist_scan = extends_playlist_scan
+
+            # Remove tracks that are in extends_playlist_scan
+            existing_tracks = set(track for track in extends_playlist_scan.get_inherited_tracks())
+            current_tracks = set(track for track in playlist_scan.tracks)
+
+            # Configure the current scan with only the new tracks
+            new_tracks = existing_tracks - current_tracks
+            playlist_scan.tracks = list(new_tracks)
+            playlist_scan.amount_of_tracks = len(playlist_scan.tracks)
+
+        # Set initial 0% State
+        meta['progress_info']['total_tracks'] = str(playlist_scan.amount_of_tracks)
+
+        total_pages = PDF.get_total_pages(playlist_scan.amount_of_tracks, config.get('pdf_layout_style', 'default'))
         meta['progress_info']['total_pages'] = str(total_pages)
+
+        self.update_state(state = "PULLING", meta = meta)
 
         updated_tracks = []
         for track in playlist_scan.tracks:
@@ -168,13 +206,18 @@ def build_pdf(self, playlist_scan_id):
                   redis_client = redis_client,
                   status_key = f"task_status:{self.request.id}",
                   update_method = self.update_state,
-                  meta = meta)
+                  meta = meta,
+                  layout_style = config.get('pdf_layout_style', 'default'))
 
         result = pdf.export(pdf_output_path)
 
         if result == "USER_EXIT":
             return {"result": "Interrupted"}
         else:
+
+            # Push to Database
+            playlist_scan.export_completed = True
+            playlist_scan_dao.put_instance(playlist_scan)
 
             meta['progress_info']['task_description'] = "Ready to Download"
             meta['progress_info']['total_pages'] = f"({total_pages}/{total_pages})"
@@ -206,35 +249,3 @@ def track_progress():
         return {"state": "ERROR", "error_msg": str(e)}
 
     return {"state": task.state, "progress": progress, "progress_info": progress_info}
-
-
-@export_bp.route("/api/cache", methods = ["POST"])
-def cache_interacter(data=None):
-    if data is None:
-        data = request.get_json()
-
-    attribute = data.get("attribute")
-    key = data.get("key")
-
-    if "get_output_method" in data:  # Run method from cached instance
-        if not Cache.has_key(attribute, key):
-            return jsonify({"error": "Cache key not found"}), 400
-
-        instance = Cache.get(attribute, key)
-
-        method_name = data.get("get_output_method")
-
-        # Check if the requested method exists and is callable
-        if hasattr(instance, method_name) and callable(getattr(instance, method_name)):
-            # Run the method and get the output
-            method = getattr(instance, method_name)
-            output = method()
-            return jsonify(output)
-        else:
-            return jsonify({"error": "Invalid method title"}), 400
-    else:
-        if not Cache.has_key(attribute, key):
-            return jsonify(None)
-            # return jsonify({"error": "Cache key not found"}), 400
-
-        return jsonify(Cache.get(attribute, key))

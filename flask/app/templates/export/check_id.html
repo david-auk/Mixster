@@ -76,16 +76,17 @@
 
                         progressDataInfo = progressData.progress_info
 
-                        statusText.textContent = `Status: ${progressDataInfo.task_description}`;
-
                         if (progressData.state === 'SUCCESS') {
                             clearInterval(interval);
                             loadingSpinner.style.display = 'none';
-                            redirectToExport(progressDataInfo.playlist_scan_id);
+
+                            window.location.replace(`/export/scan/${progressDataInfo.playlist_scan_id}`);
                         } else if (progressData.state === 'ERROR') {
                             clearInterval(interval);
                             loadingSpinner.style.display = 'none';
-                            statusText.textContent = `Status: Error - ${progressData.error_msg}`;
+                            statusText.textContent = `Status: Error - ${progressDataInfo.error_msg}`;
+                        } else {
+                            statusText.textContent = `Status: ${progressDataInfo.task_description}`;
                         }
                     })
                     .catch(error => {
@@ -95,21 +96,6 @@
                         loadingSpinner.style.display = 'none';
                     });
             }, 500);
-        }
-
-        function redirectToExport(playlistScanID) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/export';
-
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'playlist_scan_id';
-            input.value = playlistScanID;
-
-            form.appendChild(input);
-            document.body.appendChild(form);
-            form.submit();
         }
 
         // Automatically start the build process

@@ -143,39 +143,46 @@ class QRCode:
 
 class PDF:
 
-    size = 'large'
+    size = 'default'
 
-    if size == 'large':
-        labels_per_row = 2
-        labels_per_column = 3
-        label_width = 90  # Width of each label image
-        label_height = 90  # Height of each label image
-    else:
-        labels_per_row = 3
-        labels_per_column = 4
-        label_width = 60  # Width of each label image
-        label_height = 60  # Height of each label image
+    layout = {
+        'default': {
+            'labels_per_row': 2,
+            'labels_per_column': 3,
+            'label_width': 90,  # Width of each label image
+            'label_height': 90  # Height of each label image
+        },
+        'compact': {
+            'labels_per_row': 3,
+            'labels_per_column': 4,
+            'label_width': 60,  # Width of each label image
+            'label_height': 60  # Height of each label image
+        }
+    }
         
     margin_x = 15  # Margin from the left edge
     margin_y = 10  # Margin from the top edge
 
     @staticmethod
-    def __get_tracks_per_page():
-        return PDF.labels_per_row * PDF.labels_per_column
+    def __get_tracks_per_page(layout_style: str):
+        if layout_style not in PDF.layout:
+            raise RuntimeError("Size-layout option not recognised")
+
+        return PDF.layout[layout_style]['labels_per_row'] * PDF.layout[layout_style]['labels_per_column']
 
     @staticmethod
-    def get_total_pages(track_amount: int) -> int:
-        pages = track_amount / PDF.__get_tracks_per_page() * 2
+    def get_total_pages(track_amount: int, layout_style: str) -> int:
+        pages = track_amount / PDF.__get_tracks_per_page(layout_style) * 2
         pages = math.ceil(pages)  # Round up
         if pages < 2:
             pages = 2  # Always at least two pages for a qr and a tracklist
         return pages
 
     def __init__(self, track_list: list[Track], style: dict, redis_client=None, status_key=None, update_method=None,
-                 meta: dict = None):
+                 meta: dict = None, layout_style: str = "default"):
         self.pdf = FPDF(orientation = 'P', unit = 'mm', format = 'A4')
         self.track_list = track_list
-        self.total_pages = self.get_total_pages(len(track_list))
+        self.total_pages = self.get_total_pages(len(track_list), layout_style)
 
         # Style linting here.
         if not "font_path" in style:
