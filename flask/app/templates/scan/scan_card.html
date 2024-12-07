@@ -186,7 +186,12 @@
         function populateCameraList() {
             Html5Qrcode.getCameras().then(devices => {
                 const cameraList = document.getElementById("camera-list");
-                cameraList.innerHTML = ""; // Clear existing options
+
+                // Store the currently selected value
+                const previousSelection = cameraList.value;
+
+                // Clear existing options
+                cameraList.innerHTML = "";
 
                 if (devices && devices.length) {
                     devices.forEach((device, index) => {
@@ -196,8 +201,15 @@
                         cameraList.appendChild(option);
                     });
 
-                    // Set the first camera as the default selection
-                    selectedCameraId = devices[0].id;
+                    // Restore the previously selected value if it exists
+                    if (previousSelection && Array.from(cameraList.options).some(opt => opt.value === previousSelection)) {
+                        cameraList.value = previousSelection;
+                        selectedCameraId = previousSelection;
+                    } else {
+                        // Default to the first camera if the previous selection is unavailable
+                        cameraList.value = devices[0].id;
+                        selectedCameraId = devices[0].id;
+                    }
                 } else {
                     alert("No cameras found.");
                 }
