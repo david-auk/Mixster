@@ -11,8 +11,16 @@
     <style>
         /* Basic styling for the scanner container */
         #reader {
-            width: 600px;
+            width: 90%; /* Make the width responsive */
+            max-width: 600px; /* Ensure it doesn't exceed 600px */
             margin: 20px auto;
+        }
+
+        /* Adjustments for smaller screens */
+        @media (max-width: 768px) {
+            #reader {
+                width: 95%; /* Expand a bit more on smaller screens */
+            }
         }
 
         /* Camera selection styling */
