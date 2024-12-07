@@ -84,6 +84,13 @@ def get_playlist_details():
         attributes = playlist_scan_dao.get_attributes(playlist_scan_id, (
             'p.title', 'p.cover_image_url', 'ps.amount_of_tracks', 'ps.export_completed'
         ))
+
+        if config.get('only_unique', False):
+            track_attributes = playlist_scan_dao.get_track_attributes(playlist_scan_id, (
+                'COUNT(DISTINCT track_id) as amount_of_unique_tracks',
+            ))
+            attributes['amount_of_tracks'] = track_attributes['amount_of_unique_tracks']
+
         attributes['total_pages'] = PDF.get_total_pages(attributes['amount_of_tracks'], config.get('pdf_layout_style', 'default'))
 
     if attributes:
