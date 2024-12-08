@@ -28,7 +28,7 @@ def get_playback_data(access_token):
 
 def get_device_id(playback_data):
     # Check if there is an active device
-    device = playback_data.get('device')
+    device = playback_data.get('device') if isinstance(playback_data, dict) else None
     if device and device.get('is_active'):
         return device.get("id")
 
@@ -171,7 +171,7 @@ def pause(device_id=None, playback_data=None):
         if not device_id:
             device_id = get_device_id(playback_data)
 
-    if playback_data["is_playing"]:
+    if isinstance(playback_data, dict) and playback_data["is_playing"]:
         return control_playback(access_token, control_type = "pause", device_id = device_id)
 
     return jsonify({'message': 'track already paused'}), 200
