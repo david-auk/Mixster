@@ -189,7 +189,7 @@ def resume(device_id=None, playback_data=None):
         if not device_id:
             device_id = get_device_id(playback_data)
 
-    if not playback_data["is_playing"]:
+    if not isinstance(playback_data, dict) or not playback_data["is_playing"]:
         return control_playback(access_token, control_type = "play", device_id = device_id)
 
     return jsonify({'message': 'track already playing'}), 200
