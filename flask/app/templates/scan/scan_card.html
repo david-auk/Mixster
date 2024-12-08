@@ -127,6 +127,7 @@
         let scanning = true;
         let currentTrackId = null;
         let selectedCameraId = null;
+        let device_id = null;
 
         function checkPreconditions() {
             fetch("/media-control/check")
@@ -269,6 +270,9 @@
 
         // Function to handle successful QR code scanning
         function onScanSuccess(decodedText) {
+
+            // Freeze the scanner
+            html5QrCode.pause(true)
             if (!scanning) return;
             scanning = false
 
@@ -287,7 +291,10 @@
                 fetch("/media-control/play", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ track_id })
+                    body: JSON.stringify({
+                        'track_id': track_id,
+                        'device_id': device_id
+                    })
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -304,6 +311,16 @@
 
                         // Stop scanner whilst QR code is read and popup is active
                         pauseScanner();
+
+                        // If playback device not yet saved
+                        if (!device_id) {
+                            fetch("/media-control/get-current-device")
+                            .then(response => response.json())
+                            .then(data => {
+                                device_id = data.device_id
+                            })
+                        }
+
                     }
 
                     // After the scanner is paused, reset the bool to true
@@ -333,7 +350,13 @@
 
         // Function to toggle pause/play
         function togglePause() {
-            fetch("/media-control/toggle-pause")
+            fetch("/media-control/toggle-pause", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    'device_id': device_id
+                })
+            })
             .then(response => response.json())
             .then(data => {
                 if (data.error) {

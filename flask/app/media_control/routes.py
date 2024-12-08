@@ -32,6 +32,8 @@ def get_device_id(playback_data):
     if device and device.get('is_active'):
         return device.get("id")
 
+    return None
+
 
 def control_playback(access_token, control_type, device_id=None):
 
@@ -116,7 +118,18 @@ def play():
         'Content-Type': 'application/json'
     }
 
-    response = requests.put(f"{SPOTIFY_PLAYER_URL}/play", headers = headers, json = {'uris': [track_uri]})
+    # Construct URL with optional device_id query parameter
+    url = f"{SPOTIFY_PLAYER_URL}/play"
+
+    # The code below should work but sadly doesn't, there is a spotify bug that gives a 'bad gateway' when a play
+    # request is done directly into a device
+
+    # If a device_id is passed, use that for playback device targeting
+    device_id = request.json.get("device_id")
+    if device_id:
+        url += f"?device_id={device_id}"
+
+    response = requests.put(url, headers = headers, json = {'uris': [track_uri]})
 
     if response.status_code != 204:
         return get_error(response)
@@ -124,18 +137,21 @@ def play():
     return jsonify({"message": "playing track"}), 200
 
 
-@media_control_bp.route('/toggle-pause', methods = ["GET"])
+@media_control_bp.route('/toggle-pause', methods = ["GET", "POST"])
 def toggle_pause():
     access_token = session.get('access_token')
     user_vars = session.get('user_vars')
     if not access_token or not user_vars:
         return jsonify({"error": "access_token is required, are you logged in?"}), 400
 
+    # If a device_id is passed, use that for playback device targeting
     playback_data = get_playback_data(access_token)
-    device_id = get_device_id(playback_data)
-
+    device_id = request.json.get("device_id")
     if not device_id:
-        return jsonify({"error": "no playable device found"})
+        device_id = get_device_id(playback_data)
+
+        if not device_id:
+            return jsonify({"error": "no playable device found"})
 
     if playback_data["is_playing"]:
         return pause(device_id, playback_data)  # Pause playback if playing
@@ -177,3 +193,18 @@ def resume(device_id=None, playback_data=None):
         return control_playback(access_token, control_type = "play", device_id = device_id)
 
     return jsonify({'message': 'track already playing'}), 200
+
+
+@media_control_bp.route('/get-current-device', methods = ["GET"])
+def get_current_device():
+    access_token = session.get('access_token')
+    user_vars = session.get('user_vars')
+    if not access_token or not user_vars:
+        return jsonify({"error": "access_token is required, are you logged in?"}), 400
+
+    device_id = get_device_id(get_playback_data(access_token))
+
+    if device_id:
+        return jsonify({'device_id': str(device_id)}), 200
+    else:
+        return jsonify({'error': 'No playback device found'}), 400
