@@ -153,6 +153,8 @@ def toggle_pause():
         if not device_id:
             return jsonify({"error": "no playable device found"})
 
+    print(playback_data, flush = True)
+
     if playback_data["is_playing"]:
         return pause(device_id, playback_data)  # Pause playback if playing
     else:
