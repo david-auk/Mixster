@@ -27,19 +27,64 @@
             height: auto;
         }
 
-        .current-song-info {
-            text-align: center;
-            margin-top: 20px;
-        }
-
         .button-container {
             display: flex; /* Use flexbox for layout */
             justify-content: center; /* Center items horizontally */
             gap: 10px; /* Space between the buttons */
             margin-top: 20px; /* Optional: Add margin on top for spacing */
         }
+
+        details {
+            margin-top: 20px;
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        details > div {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 10px;
+        }
+
+        .settings-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .settings-buttons button {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .settings-buttons button.save {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .settings-buttons button.cancel {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .disabled {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
     </style>
 </head>
+
 <body>
     <!-- Playlist Preview -->
     <div class="playlist-preview">
@@ -50,10 +95,44 @@
 
         <h4 id="status" style="min-height: 30px;"></h4>
         <p id="time-left-estimate">Time left: N/A</p>
+
+        <!-- Expandable Menu -->
+        <details id="settingsDetails">
+            <summary>Settings</summary>
+            <div>
+                <form id="settingsForm">
+                    <!-- PDF Layout -->
+                    <div style="margin-top: 10px;">
+                        <label for="pdfLayout">PDF Layout</label>
+                        <select id="pdfLayout" name="pdfLayout">
+                            <option value="default" selected>Default</option>
+                            <option value="compact">Compact</option>
+                        </select>
+                    </div>
+
+                    <!-- Extends Playlist -->
+                    <div style="margin-top: 10px;">
+                        <label for="extendsPlaylist">Extends Playlist</label>
+                        <select id="extendsPlaylist" name="extendsPlaylist" disabled>
+                            <option value="">To implement</option>
+                        </select>
+                    </div>
+
+                    <!-- Only Unique -->
+                    <div class="form-check">
+                        <input type="checkbox" id="onlyUnique" name="onlyUnique">
+                        <label for="onlyUnique">Only Unique</label>
+                    </div>
+
+                    <!-- Save and Cancel Buttons -->
+                    <div class="button-container">
+                        <button id="cancel_settings_btn" type="button" class="btn btn-outline-danger">Cancel</button>
+                        <button id="save_settings_btn" type="button" class="btn btn-outline-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </details>
     </div>
-
-
-
     <!-- Buttons -->
     <div class="button-container">
         <button id="export_btn" type="submit" class="btn btn-outline-primary">Export</button>
@@ -64,12 +143,6 @@
     <!-- Progress Bar -->
     <div class="progress">
         <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
-    </div>
-    <!-- Current Song Info -->
-    <div class="current-song-info">
-        <h3>Current Track:</h3>
-        <p id="track-name">Track Name: N/A</p>
-        <p id="track-artist">Artist: N/A</p>
     </div>
 
     <script>
@@ -86,10 +159,13 @@
         const totalTracksElement = document.getElementById('total_tracks');
         const totalPagesElement = document.getElementById('total_pages');
 
-        const song_info = document.querySelector('.current-song-info');
+        // Settings
+        const settingsDetailsElement = document.getElementById('settingsDetails')
+        const uniqueCheckbox = document.getElementById('onlyUnique');
+        const pdfLayoutSelect = document.getElementById('pdfLayout');
+        const cancelSettingsButton = document.getElementById('cancel_settings_btn');
+        const saveSettingsButton = document.getElementById('save_settings_btn');
 
-        const track_name_element = document.getElementById('track-name');
-        const track_artist_element = document.getElementById('track-artist');
         const time_left_estimate_element = document.getElementById('time-left-estimate');
 
         // Hide Info until relevant
@@ -97,17 +173,36 @@
         stop_button.style.display = 'none';
         download_button.style.display = 'none';
         time_left_estimate_element.style.visibility = 'hidden';
-        song_info.style.visibility = 'hidden';
         progres.style.visibility = 'hidden';
         playlistImageElement.style.visibility = 'hidden';
         totalPagesElement.style.visibility = 'hidden';
         totalTracksElement.style.visibility = 'hidden';
+        settingsDetailsElement.style.visibility = 'hidden';
 
         // Get the json data about the playlist_scan_id to export
         const playlist_scan_id = '{{ playlist_scan_id }}'
         let totalPagesVal;
         let exportCompleted;
         let progress_val = 0;
+
+        // To store initial settings
+        let settings_value = {
+            only_unique: uniqueCheckbox.checked,
+            pdf_layout: pdfLayoutSelect.value
+        };
+
+        function toggleSettingsEditable(isEditable) {
+            const form = document.getElementById('settingsForm');
+            const elements = form.querySelectorAll('input, select, button');
+
+            elements.forEach(el => {
+                if (el.type !== 'button') {
+                    el.disabled = !isEditable;
+                }
+            });
+
+            form.classList.toggle('disabled', !isEditable);
+        }
 
         function showDownloadButton(PDFName) {
             // Show Download button
@@ -128,12 +223,6 @@
         }
 
         function updateLoadingText(data) {
-            if (data.track_name) {
-                track_name_element.textContent = `Track Name: ${data.track_name}`;
-            }
-            if (data.track_artist) {
-                track_artist_element.textContent = `Artist: ${data.track_artist}`;
-            }
             if (data.time_left_estimate) {
                 time_left_estimate_element.textContent = `Time left: ${data.time_left_estimate}`;
             }
@@ -147,163 +236,204 @@
         }
 
         function buildConfig() {
-            return {'pdf_layout_style': 'default'}
+            return {
+                'only_unique': settings_value.only_unique,
+                'pdf_layout_style': settings_value.pdf_layout
+            };
         }
 
         // Todo make into func so details can be refreshed based on updating config
 
-        // Fetch playlist details when the page loads
-        fetch("/export/api/get-playlist-details", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                playlist_scan_id: playlist_scan_id,
-                config: buildConfig()
+        function get_playlist_details() {
+
+            // Fetch playlist details when the page loads
+            fetch("/export/api/get-playlist-details", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    playlist_scan_id: playlist_scan_id,
+                    config: buildConfig()
+                })
             })
-        })
-            .then(response => response.json())
-            .then(playlistData => {
-                // Update DOM with fetched details
-                playlistTitleElement.textContent = playlistData.title || "Unknown Playlist";
-                playlistImageElement.src = playlistData.cover_image_url;
-                playlistImageElement.style.visibility = "visible";
+                .then(response => response.json())
+                .then(playlistData => {
+                    // Update DOM with fetched details
+                    playlistTitleElement.textContent = playlistData.title || "Unknown Playlist";
+                    playlistImageElement.src = playlistData.cover_image_url;
+                    playlistImageElement.style.visibility = "visible";
 
-                totalTracksElement.textContent = `Total Tracks: ${playlistData.amount_of_tracks || 'N/A'}`;
-                totalTracksElement.style.visibility = "visible"
+                    totalTracksElement.textContent = `Total Tracks: ${playlistData.amount_of_tracks || 'N/A'}`;
+                    totalTracksElement.style.visibility = "visible"
 
-                totalPagesElement.textContent = `Total Pages: ${playlistData.total_pages || 'N/A'}`;
-                totalPagesElement.style.visibility = "visible"
+                    totalPagesElement.textContent = `Total Pages: ${playlistData.total_pages || 'N/A'}`;
+                    totalPagesElement.style.visibility = "visible"
 
-                totalPagesVal = playlistData.total_pages
-                exportCompleted = Boolean(playlistData.export_completed)
+                    totalPagesVal = playlistData.total_pages
+                    exportCompleted = Boolean(playlistData.export_completed)
 
-                if (exportCompleted) {
-                    showDownloadButton(`mixster_export_${playlist_scan_id}.pdf`)
+                    if (exportCompleted) {
+                        showDownloadButton(`mixster_export_${playlist_scan_id}.pdf`)
 
-                    // TODO Implement RE-SCAN
+                        // TODO Implement RE-SCAN
 
-                    // TODO Implement RE-SCAN (extending this scan)
+                        // TODO Implement RE-SCAN (extending this scan)
 
-                } else {
+                    } else {
 
-                    // Show Export button
-                    export_button.style.display = 'inline-block';
+                        // Show Export button
+                        export_button.style.display = 'inline-block';
 
-                    function updateProgressBar(percent) {
-                        progress_val = percent
-                        if (percent === 0) {
-                            progress_bar.classList.remove("bg-success");
-                        } else if (percent >= 100) {
-                            progress_bar.classList.add("bg-success");
-                        }
-
-                        progress_bar.style.width = percent + "%";
-                        progres.setAttribute("aria-valuenow", percent);
+                        // Show Settings
+                        settingsDetailsElement.style.visibility = 'visible';
                     }
+                })
+                .catch(error => {
+                    console.error("Failed to fetch playlist details:", error);
+                });
+        }
 
-                    function isEmptyObject(obj) {
-                        return JSON.stringify(obj) === '{}'
-                    }
+        function updateProgressBar(percent) {
+            progress_val = percent
+            if (percent < 100) {
+                progress_bar.classList.remove("bg-success");
+            } else if (percent >= 100) {
+                progress_bar.classList.add("bg-success");
+            }
 
-                    export_button.addEventListener("click", () => {
-                        updateProgressBar(0);
+            progress_bar.style.width = percent + "%";
+            progres.setAttribute("aria-valuenow", percent);
+        }
 
-                        song_info.style.visibility = 'visible';
-                        progres.style.visibility = 'visible';
+        function isEmptyObject(obj) {
+            return JSON.stringify(obj) === '{}'
+        }
 
-                        export_button.setAttribute("disabled", "disabled");
+        function setupListeners(){
+            export_button.addEventListener("click", () => {
+            updateProgressBar(0);
 
-                        fetch("/export/api/start-export", {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({
-                                playlist_scan_id: playlist_scan_id,
-                                config: buildConfig()
-                            })
+            // Make settings "not editable"
+            toggleSettingsEditable(false);
+            progres.style.visibility = 'visible';
+
+            export_button.setAttribute("disabled", "disabled");
+
+            fetch("/export/api/start-export", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    playlist_scan_id: playlist_scan_id,
+                    config: buildConfig()
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    let interval = setInterval(() => {
+                        fetch("/export/api/progress", {
+                            method: "POST",
+                            headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify({task_id: data.task_id})
                         })
                             .then(response => response.json())
-                            .then(data => {
-                                let interval = setInterval(() => {
-                                    fetch("/export/api/progress", {
-                                        method: "POST",
-                                        headers: {"Content-Type": "application/json"},
-                                        body: JSON.stringify({task_id: data.task_id})
-                                    })
-                                        .then(response => response.json())
-                                        .then(result => {
-                                            if (result.state === "ERROR") {
-                                                clearInterval(interval);
-                                                alert(`An error occurred during export.\nError message: ${result.error_msg}`);
-                                                window.location.href = "/export";
-                                            } else {
-                                                // Reset the progress bar if a new state is triggerd
-                                                if (result.progress < progress_val) {
-                                                    progress_bar.classList.remove("bg-success");
-                                                }
-                                                updateProgressBar(result.progress)
-                                                if (!isEmptyObject(result.progress_info)) {
-                                                    if (time_left_estimate_element.style.visibility === 'hidden') {
-                                                        time_left_estimate_element.style.visibility = 'visible';
-                                                    }
-                                                    updateLoadingText(result.progress_info)
-                                                }
-                                                if (result.state === "SUCCESS") {
-                                                    clearInterval(interval);
-                                                    fetch("/export/api/progress", {
-                                                        method: "POST",
-                                                        headers: {"Content-Type": "application/json"},
-                                                        body: JSON.stringify({task_id: data.task_id})
-                                                    })
-                                                        .then(response => response.json())
-                                                        .then(result => {
-                                                            updateProgressBar(100)
-                                                            updateLoadingText(result.progress_info)
-                                                            // Hide buttons
-                                                            export_button.style.display = 'none';
-                                                            stop_button.style.display = 'none';
-                                                            export_button.removeAttribute("disabled");
-                                                            time_left_estimate_element.style.display = 'none';
-
-                                                            showDownloadButton(result.progress_info.pdf_filename)
-                                                        })
-                                                }
-                                            }
-                                        })
-                                }, 500) // Check every 1/2 of a second
-                                stop_button.style.display = 'inline-block';
-                                stop_button.addEventListener("click", () => {
-                                    // Stop backend
-                                    fetch("/export/api/stop", {
-                                        method: "POST",
-                                        headers: {"Content-Type": "application/json"},
-                                        body: JSON.stringify({task_id: data.task_id})
-                                    })
+                            .then(result => {
+                                if (result.state === "ERROR") {
                                     clearInterval(interval);
+                                    alert(`An error occurred during export.\nError message: ${result.error_msg}`);
+                                    window.location.href = "/export";
+                                } else {
+                                    // Reset the progress bar if a new state is triggerd
+                                    if (result.progress < progress_val) {
+                                        progress_bar.classList.remove("bg-success");
+                                    }
+                                    updateProgressBar(result.progress)
+                                    if (!isEmptyObject(result.progress_info)) {
+                                        if (time_left_estimate_element.style.visibility === 'hidden') {
+                                            time_left_estimate_element.style.visibility = 'visible';
+                                        }
+                                        updateLoadingText(result.progress_info)
+                                    }
+                                    if (result.state === "SUCCESS") {
+                                        clearInterval(interval);
+                                        fetch("/export/api/progress", {
+                                            method: "POST",
+                                            headers: {"Content-Type": "application/json"},
+                                            body: JSON.stringify({task_id: data.task_id})
+                                        })
+                                            .then(response => response.json())
+                                            .then(result => {
+                                                updateProgressBar(100)
+                                                updateLoadingText(result.progress_info)
+                                                // Hide buttons
+                                                export_button.style.display = 'none';
+                                                stop_button.style.display = 'none';
+                                                export_button.removeAttribute("disabled");
+                                                time_left_estimate_element.style.display = 'none';
 
-                                    // Stop frontend
-                                    song_info.style.visibility = 'hidden';
-                                    time_left_estimate_element.style.visibility = 'hidden';
-                                    progres.style.visibility = 'hidden';
-                                    updateProgressBar(0);
-                                    export_button.removeAttribute("disabled");
-                                    stop_button.style.display = 'none';
-
-                                    data.track_name = "N/A";
-                                    data.track_artist = "N/A";
-                                    data.time_left_estimate = "N/A";
-                                    data.total_pages = totalPagesVal;
-                                    data.iteration = 0;
-                                    data.task_description = "";
-
-                                    updateLoadingText(data)
-                                })
+                                                showDownloadButton(result.progress_info.pdf_filename)
+                                            })
+                                    }
+                                }
                             })
-                    })
-                }
+                    }, 500) // Check every 1/2 of a second
+                    stop_button.style.display = 'inline-block';
+                })
             })
-            .catch(error => {
-                console.error("Failed to fetch playlist details:", error);
+
+            stop_button.addEventListener("click", () => {
+                // Stop backend
+                fetch("/export/api/stop", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({task_id: data.task_id})
+                })
+                clearInterval(interval);
+
+                // Stop frontend
+                time_left_estimate_element.style.visibility = 'hidden';
+                progres.style.visibility = 'hidden';
+                updateProgressBar(0);
+                export_button.removeAttribute("disabled");
+                stop_button.style.display = 'none';
+
+                data.track_name = "N/A";
+                data.track_artist = "N/A";
+                data.time_left_estimate = "N/A";
+                data.total_pages = totalPagesVal;
+                data.iteration = 0;
+                data.task_description = "";
+
+                updateLoadingText(data)
+            })
+
+            // Function to save current settings
+            function saveCurrentSettings() {
+                settings_value.only_unique = uniqueCheckbox.checked
+                settings_value.pdf_layout = pdfLayoutSelect.value
+            }
+
+            // Save settings when the details panel is opened
+            settingsDetailsElement.addEventListener('toggle', () => {
+                if (settingsDetailsElement.open) {
+                    saveCurrentSettings(); // Save initial state when opening
+                }
             });
+
+            saveSettingsButton.addEventListener('click', () => {
+                saveCurrentSettings()
+                get_playlist_details()
+                settingsDetailsElement.open = false
+            });
+
+            cancelSettingsButton.addEventListener('click', () => {
+                uniqueCheckbox.checked = settings_value.only_unique;
+                pdfLayoutSelect.value = settings_value.pdf_layout;
+                settingsDetailsElement.open = false
+            });
+
+        }
+
+        setupListeners()
+        get_playlist_details()
     </script>
 </body>
 </html>

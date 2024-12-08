@@ -175,6 +175,10 @@ class PDF:
         pages = math.ceil(pages)  # Round up
         if pages < 2:
             pages = 2  # Always at least two pages for a qr and a tracklist
+
+        # Add an extra page if the number is odd
+        if pages % 2 == 1:
+            pages += 1
         return pages
 
     def __init__(self, track_list: list[Track], style: dict, redis_client=None, status_key=None, update_method=None,
