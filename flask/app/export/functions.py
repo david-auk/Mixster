@@ -179,7 +179,8 @@ def build_pdf(self, playlist_scan_id: str, config: dict):
         playlist_dao = PlaylistDAO(connection)
         playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)
 
-        playlist_scan = playlist_scan_dao.get_instance(playlist_scan_id)
+        playlist_scan = playlist_scan_dao.get_instance(playlist_scan_id, config.get('only_unique', False))
+        amount_of_tracks = len(playlist_scan.tracks)
 
         # TODO Check if this setup works
         if config.get("extends", None):
@@ -196,9 +197,9 @@ def build_pdf(self, playlist_scan_id: str, config: dict):
             playlist_scan.amount_of_tracks = len(playlist_scan.tracks)
 
         # Set initial 0% State
-        meta['progress_info']['total_tracks'] = str(playlist_scan.amount_of_tracks)
+        meta['progress_info']['total_tracks'] = str(amount_of_tracks)
 
-        total_pages = PDF.get_total_pages(playlist_scan.amount_of_tracks, config.get('pdf_layout_style', 'default'))
+        total_pages = PDF.get_total_pages(amount_of_tracks, config.get('pdf_layout_style', 'default'))
         meta['progress_info']['total_pages'] = str(total_pages)
 
         self.update_state(state = "PULLING", meta = meta)
