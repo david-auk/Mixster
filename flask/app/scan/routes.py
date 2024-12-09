@@ -41,6 +41,6 @@ def stop():
         playlist_dao = PlaylistDAO(connection)
         playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)
 
-        playlist_scan = playlist_scan_dao.get_instance(scan_id)
+        playlist_scan = playlist_scan_dao.get_instance(scan_id, False)
 
     return jsonify(playlist_scan.playlist.export_attributes()), 200

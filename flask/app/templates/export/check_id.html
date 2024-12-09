@@ -74,19 +74,17 @@
                     .then(response => response.json())
                     .then(progressData => {
 
-                        progressDataInfo = progressData.progress_info
-
                         if (progressData.state === 'SUCCESS') {
                             clearInterval(interval);
                             loadingSpinner.style.display = 'none';
 
-                            window.location.replace(`/export/scan/${progressDataInfo.playlist_scan_id}`);
+                            window.location.replace(`/export/scan/${progressData.progress_info.playlist_scan_id}`);
                         } else if (progressData.state === 'ERROR') {
                             clearInterval(interval);
                             loadingSpinner.style.display = 'none';
-                            statusText.textContent = `Status: Error - ${progressDataInfo.error_msg}`;
+                            statusText.textContent = `Status: Error - ${progressData.error_msg}`;
                         } else {
-                            statusText.textContent = `Status: ${progressDataInfo.task_description}`;
+                            statusText.textContent = `Status: ${progressData.progress_info.task_description}`;
                         }
                     })
                     .catch(error => {

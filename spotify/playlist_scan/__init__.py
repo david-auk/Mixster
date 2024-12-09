@@ -363,9 +363,10 @@ class PlaylistScanDAO:
         finally:
             cursor.close()
 
-    def get_instance(self, playlist_scan_id: str) -> PlaylistScan | None:
+    def get_instance(self, playlist_scan_id: str, tracks_only_unique: bool = False) -> PlaylistScan | None:
         """
         Retrieves an Artist instance by its ID from the database.
+        :param tracks_only_unique:
         :param playlist_scan_id: The ID of the playlist_scan to retrieve.
         :return: An PlaylistScan instance, or None if not found.
         """
@@ -385,8 +386,8 @@ class PlaylistScanDAO:
                 return None  # Track not found
 
             # Fetch associated tracks
-            query = """
-            SELECT t.id
+            query = f"""
+            SELECT {'DISTINCT t.id' if tracks_only_unique else 't.id'}
             FROM track t
             INNER JOIN playlist_scan_track pst ON t.id = pst.track_id
             WHERE pst.playlist_scan_id = %s
@@ -409,7 +410,7 @@ class PlaylistScanDAO:
                 export_completed = bool(playlist_scan_data["export_completed"]),
                 tracks = track_instances,
                 extends_playlist_scan = self.get_instance(playlist_scan_data[
-                                                              "extends_playlist_scan"]) if "extends_playlist_scan" in playlist_scan_data else None,
+                                                              "extends_playlist_scan"], False) if "extends_playlist_scan" in playlist_scan_data else None,
             )
 
         except Exception as e:

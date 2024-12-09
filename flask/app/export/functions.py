@@ -179,7 +179,7 @@ def build_pdf(self, playlist_scan_id: str, config: dict):
         playlist_dao = PlaylistDAO(connection)
         playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)
 
-        playlist_scan = playlist_scan_dao.get_instance(playlist_scan_id)
+        playlist_scan = playlist_scan_dao.get_instance(playlist_scan_id, config.get('only_unique', False))
 
         # TODO Check if this setup works
         if config.get("extends", None):
