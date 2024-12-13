@@ -11,49 +11,13 @@ from typing_extensions import Self
 
 class Track:
 
-    @classmethod
-    def build_from_id(cls, track_id: str, pull_tries: int = 5) -> Self:
-        url = f"https://open.spotify.com/track/{track_id}"
-        soup = None
-        for attempt in range(pull_tries):
-            attempt += 1
-            try:
-                soup = utilities.build_soup(url)
-                break
-            except Exception as e:
-                if str(e) != "Failed to retrieve track page":
-                    raise Exception(e)
-                else:
-                    if attempt == pull_tries:
-                        raise Exception(e)
-
-        # Getting artists data
-        artists_id = []
-        for artist_url in soup.findAll("meta", attrs = {"name": "music:musician"}):
-            artist_id = artist_url["content"].split("/")[-1]
-            artists_id.append(artist_id)
-
-        artists_name = soup.find("meta", attrs = {"name": "music:musician_description"})["content"].split(", ")
-
-        artists = [Artist(artist_id, artist_name) for artist_id, artist_name in zip(artists_id, artists_name)]
-
-        # Getting album data
-        album_url = soup.find("meta", attrs = {"name": "music:album"})["content"]
-        album_id = album_url.split("/")[-1]
-        release_date = soup.find("meta", attrs = {"name": "music:release_date"})["content"]
-        release_date = datetime.datetime.strptime(release_date, "%Y-%m-%d")
-        album = Album(album_id, release_date, artists)
-
-        track_title = soup.find("meta", property = "og:title")["content"]
-
-        return cls(track_id, track_title, album)
-
-    def __init__(self, track_id: str, title: str, album: Album, artists: list[Artist]):
+    def __init__(self, track_id: str, title: str, album: Album, artists: list[Artist], added_at: datetime = None):
         self.id = track_id
         self.url = f"https://open.spotify.com/track/{self.id}"
         self.title = title
         self.album = album
         self.artists = artists
+        self.added_at = added_at
 
     def get_artist_name(self) -> str:
         artist_names = []

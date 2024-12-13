@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import time, datetime
 from urllib import parse
 
 import requests
@@ -77,7 +77,7 @@ class PlaylistScan:
                 limit = params['limit'][0]
 
                 params = {
-                    "fields": 'items(track(is_local,id,name,images,artists(name,id),album(id,name,release_date))),next',
+                    "fields": 'items(added_at,track(is_local,added_at,id,name,images,artists(name,id),album(id,name,release_date))),next',
                     "offset": offset,
                     "limit": limit
                 }
@@ -87,7 +87,7 @@ class PlaylistScan:
                     # Playlist info
                     "id,name,images,tracks.total,"
                     # Track info
-                    "tracks.items(track(is_local,id,name,images,artists(name,id),album(id,name,release_date))),"
+                    "tracks.items(added_at,track(is_local,id,name,images,artists(name,id),album(id,name,release_date))),"
                     # API logistics
                     "tracks.next"
                 )
@@ -144,7 +144,8 @@ class PlaylistScan:
                     track_id = item['track']['id'],
                     title = item['track']['name'],
                     album = album,
-                    artists = artists
+                    artists = artists,
+                    added_at = datetime.strptime(item['added_at'], "%Y-%m-%dT%H:%M:%SZ")
                 ))
             next_url = tracks_data['next']
             if next_url:
@@ -269,10 +270,10 @@ class PlaylistScanDAO:
 
                         # Link the tracks to the scan
                         relationship_query = """
-                        INSERT INTO playlist_scan_track (playlist_scan_id, track_playlist_scan_index, track_id)
-                        VALUES (%s, %s, %s)
+                        INSERT INTO playlist_scan_track (playlist_scan_id, track_playlist_scan_index, track_id, track_added_at)
+                        VALUES (%s, %s, %s, %s)
                         """
-                        cursor.execute(relationship_query, (playlist_scan.id, index, track.id))
+                        cursor.execute(relationship_query, (playlist_scan.id, index, track.id, track.added_at))
 
             # Commit the transaction
             self.connection.commit()

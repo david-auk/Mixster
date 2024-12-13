@@ -63,6 +63,7 @@ CREATE TABLE playlist_scan_track (
     playlist_scan_id UUID NOT NULL,
     track_id VARCHAR(255) NOT NULL,
     track_playlist_scan_index INT NOT NULL,
+    track_added_at TIMESTAMP NOT NULL,
     PRIMARY KEY (playlist_scan_id, track_id, track_playlist_scan_index),
     FOREIGN KEY (playlist_scan_id) REFERENCES playlist_scan(id) ON DELETE CASCADE,
     FOREIGN KEY (track_id) REFERENCES track(id) ON DELETE CASCADE
