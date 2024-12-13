@@ -250,20 +250,21 @@
 
         function populate_extend_dropdown(extend_options) {
 
-            console.log(extendsDropdown.disabled)
-
             // Check if the dropdown is already populated
             if (extendsDropdown.disabled) {
-                extend_options.forEach(option => {
-                    // Skip the current scan
-                    if (option.id !== playlist_scan_id){
-                        const newOption = document.createElement("option");
-                        newOption.value = option.id;
-                        newOption.textContent = option.id;
-                        extendsDropdown.appendChild(newOption);
-                    }
-                });
 
+                // If data is valid
+                if (extend_options && Array.isArray(extend_options)) {
+                    extend_options.forEach(option => {
+                        // Skip the current scan
+                        if (option.id !== playlist_scan_id) {
+                            const newOption = document.createElement("option");
+                            newOption.value = option.id;
+                            newOption.textContent = option.id;
+                            extendsDropdown.appendChild(newOption);
+                        }
+                    });
+                }
                 // Enable the dropdown
                 extendsDropdown.disabled = false;
             }
