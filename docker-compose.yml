@@ -4,9 +4,11 @@ services:
   flask:
     build:
       context: ./flask
+      args:
+        FLASK_PORT: ${FLASK_PORT:-5050}
     container_name: flask
     ports:
-      - "5050:5050"
+      - "${FLASK_PORT:-5050}:${FLASK_PORT:-5050}"
     volumes:
       - ./flask:/app
       - ./spotify:/app/spotify
