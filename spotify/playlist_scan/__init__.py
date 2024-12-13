@@ -364,9 +364,10 @@ class PlaylistScanDAO:
         finally:
             cursor.close()
 
-    def get_instance(self, playlist_scan_id: str, tracks_only_unique: bool = False) -> PlaylistScan | None:
+    def get_instance(self, playlist_scan_id: str, tracks_only_unique: bool = False, tracks_newer_than: datetime = None) -> PlaylistScan | None:
         """
         Retrieves an Artist instance by its ID from the database.
+        :param tracks_newer_than: The date the tracks to be initialized must be newer of
         :param tracks_only_unique:
         :param playlist_scan_id: The ID of the playlist_scan to retrieve.
         :return: An PlaylistScan instance, or None if not found.
@@ -392,9 +393,15 @@ class PlaylistScanDAO:
             FROM track t
             INNER JOIN playlist_scan_track pst ON t.id = pst.track_id
             WHERE pst.playlist_scan_id = %s
-            ORDER BY track_playlist_scan_index
+            {f"AND pst.track_added_at > %s" if tracks_newer_than else ""}
+            ORDER BY pst.track_playlist_scan_index
             """
-            cursor.execute(query, (playlist_scan_id,))
+
+            params = [playlist_scan_id]
+            if tracks_newer_than:
+                params.append(tracks_newer_than)
+
+            cursor.execute(query, tuple(params))
             tracks = cursor.fetchall()
 
             # Construct artists
