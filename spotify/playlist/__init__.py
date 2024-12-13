@@ -163,6 +163,31 @@ class PlaylistDAO:
         finally:
             cursor.close()
 
+    def get_attributes(self, playlist_id: str, attributes: tuple) -> dict | None:
+        try:
+            cursor = self.connection.cursor(dictionary = True)
+            # Fetch artist data
+            query = f"""
+            SELECT {", ".join(attributes)}
+            FROM playlist as p
+            JOIN playlist_scan ps on ps.playlist_id = p.id
+            WHERE p.id = %s
+            """
+            cursor.execute(query, (playlist_id,))
+            playlist_data = cursor.fetchall()
+
+            if not playlist_data:
+                return None  # Playlist not found
+
+            # Construct and return the Track instance
+            return playlist_data
+
+        except Exception as e:
+            print(f"Error fetching user instance: {e}")
+            return None
+        finally:
+            cursor.close()
+
     def get_instance(self, playlist_id: str) -> Playlist | None:
         """
         Retrieves a Playlist instance by its ID from the database.

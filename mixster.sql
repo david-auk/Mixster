@@ -19,7 +19,6 @@ CREATE TABLE playlist_scan (
     id UUID NOT NULL DEFAULT UUID() PRIMARY KEY,
     playlist_id VARCHAR(255) NOT NULL,
     requested_by_user_id VARCHAR(255) NOT NULL,
-    amount_of_tracks INT NOT NULL,
     export_completed BOOLEAN NOT NULL,
     extends_playlist_scan UUID DEFAULT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

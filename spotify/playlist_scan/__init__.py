@@ -20,9 +20,9 @@ from .interfaces import Update
 
 
 class PlaylistScan:
-    def __init__(self, playlist: Playlist, requested_by_user: User, amount_of_tracks: int, export_completed: bool,
+    def __init__(self, playlist: Playlist, requested_by_user: User, export_completed: bool, created_at: datetime = None,
                  extends_playlist_scan: 'PlaylistScan' = None,
-                 id: str = None, tracks: list[Track] = None, items: dict = None):
+                 id: str = None, tracks: list[Track] = None):
 
         self.id = id
 
@@ -37,7 +37,6 @@ class PlaylistScan:
             raise RuntimeError("Cant initialise without a valid requested_by_user instance")
 
         self.export_completed = export_completed
-        self.amount_of_tracks = amount_of_tracks
         self.extends_playlist_scan = extends_playlist_scan
 
         if tracks:
@@ -45,12 +44,7 @@ class PlaylistScan:
         else:
             self.tracks = []
 
-        self.items = items
-
-        # get items if tracks are not loaded yet
-        if not self.tracks and not self.items:
-            self.items = None
-            self.items = self.get_items()
+        self.created_at = created_at
 
     @classmethod
     def build_from_api(cls, playlist_id: str, access_token: str, requested_by_user: User):
@@ -85,7 +79,7 @@ class PlaylistScan:
                 # Specify fields to fetch only the required data
                 fields = (
                     # Playlist info
-                    "id,name,images,tracks.total,"
+                    "id,name,images,"
                     # Track info
                     "tracks.items(added_at,track(is_local,id,name,images,artists(name,id),album(id,name,release_date))),"
                     # API logistics
@@ -108,8 +102,6 @@ class PlaylistScan:
             title = data['name'],
             cover_image_url = data['images'][0]['url']  # Check for better way to get the best image
         )
-
-        amount_of_tracks = data['tracks']['total']
 
         tracks = []
         tracks_data = data['tracks']
@@ -153,7 +145,6 @@ class PlaylistScan:
 
         return cls(
             playlist = playlist,
-            amount_of_tracks = amount_of_tracks,
             export_completed = False,
             tracks = tracks,
             requested_by_user = requested_by_user
@@ -212,12 +203,11 @@ class PlaylistScanDAO:
 
                 # Update the existing playlist
                 update_query = ("UPDATE playlist_scan SET extends_playlist_scan = %s, playlist_id = %s, "
-                                "requested_by_user_id = %s, amount_of_tracks = %s, export_completed = %s WHERE id = %s")
+                                "requested_by_user_id = %s, export_completed = %s WHERE id = %s")
                 cursor.execute(update_query, (
                     playlist_scan.extends_playlist_scan.id if playlist_scan.extends_playlist_scan else None,
                     playlist_scan.playlist.id,
-                    playlist_scan.requested_by_user.id,
-                    playlist_scan.amount_of_tracks, int(playlist_scan.export_completed),
+                    playlist_scan.requested_by_user.id, int(playlist_scan.export_completed),
                     playlist_scan.id))
 
                 # Fetch current tracks
@@ -244,17 +234,17 @@ class PlaylistScanDAO:
                     if track.id not in existing_tracks:
                         self.track_dao.put_instance(track)
                         cursor.execute("""
-                            INSERT INTO playlist_scan_track (playlist_scan_id, track_playlist_scan_index, track_id)
-                            VALUES (%s, %s, %s)
-                        """, (playlist_scan.id, index, track.id))
+                            INSERT INTO playlist_scan_track (playlist_scan_id, track_playlist_scan_index, track_id, track_added_at)
+                            VALUES (%s, %s, %s, %s)
+                        """, (playlist_scan.id, index, track.id, track.added_at))
 
             else:
                 # Insert the new playlist
                 insert_query = (
-                    "INSERT INTO playlist_scan (playlist_id, requested_by_user_id, amount_of_tracks, export_completed, extends_playlist_scan) "
-                    "VALUES (%s, %s, %s, %s, %s)")
+                    "INSERT INTO playlist_scan (playlist_id, requested_by_user_id, export_completed, extends_playlist_scan) "
+                    "VALUES (%s, %s, %s, %s)")
                 cursor.execute(insert_query, (
-                    playlist_scan.playlist.id, playlist_scan.requested_by_user.id, playlist_scan.amount_of_tracks, int(playlist_scan.export_completed),
+                    playlist_scan.playlist.id, playlist_scan.requested_by_user.id, int(playlist_scan.export_completed),
                     playlist_scan.extends_playlist_scan.id if playlist_scan.extends_playlist_scan else None)
                     )
 
@@ -340,7 +330,7 @@ class PlaylistScanDAO:
         finally:
             cursor.close()
 
-    def get_track_attributes(self, playlist_scan_id: str, attributes: tuple) -> dict | None:
+    def get_track_attributes(self, playlist_scan_id: str, attributes: tuple, newer_than: datetime = None) -> dict | None:
         try:
             cursor = self.connection.cursor(dictionary = True)
             # Fetch artist data
@@ -348,8 +338,14 @@ class PlaylistScanDAO:
             SELECT {", ".join(attributes)}
             FROM playlist_scan_track
             WHERE playlist_scan_id = %s
+            {f"AND track_added_at > %s" if newer_than else ""}
             """
-            cursor.execute(query, (playlist_scan_id,))
+
+            params = [playlist_scan_id]
+            if newer_than:
+                params.append(newer_than)
+
+            cursor.execute(query, tuple(params))
             playlist_scan_track_data = cursor.fetchone()
 
             if not playlist_scan_track_data:
@@ -377,7 +373,7 @@ class PlaylistScanDAO:
 
             # Fetch artist data
             query = """
-            SELECT id, playlist_id, extends_playlist_scan, requested_by_user_id, amount_of_tracks, export_completed
+            SELECT id, playlist_id, extends_playlist_scan, requested_by_user_id, export_completed, timestamp
             FROM playlist_scan
             WHERE id = %s
             """
@@ -414,11 +410,11 @@ class PlaylistScanDAO:
                 id = playlist_scan_id,
                 playlist = self.playlist_dao.get_instance(playlist_scan_data["playlist_id"]),
                 requested_by_user = self.user_dao.get_instance(playlist_scan_data["requested_by_user_id"]),
-                amount_of_tracks = playlist_scan_data["amount_of_tracks"],
                 export_completed = bool(playlist_scan_data["export_completed"]),
                 tracks = track_instances,
                 extends_playlist_scan = self.get_instance(playlist_scan_data[
                                                               "extends_playlist_scan"], False) if "extends_playlist_scan" in playlist_scan_data else None,
+                created_at = playlist_scan_data["timestamp"]
             )
 
         except Exception as e:
