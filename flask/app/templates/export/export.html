@@ -112,9 +112,9 @@
 
                     <!-- Extends Playlist -->
                     <div style="margin-top: 10px;">
-                        <label for="extendsPlaylist">Extends Playlist</label>
-                        <select id="extendsPlaylist" name="extendsPlaylist" disabled>
-                            <option value="">To implement</option>
+                        <label for="extendsPlaylist">Extend previous Playlist-Scan</label>
+                        <select id="extendsPlaylist" name="extendsPlaylist">
+                            <option value="">None</option>
                         </select>
                     </div>
 
@@ -162,6 +162,7 @@
         // Settings
         const settingsDetailsElement = document.getElementById('settingsDetails')
         const uniqueCheckbox = document.getElementById('onlyUnique');
+        const extendsDropdown = document.getElementById("extendsPlaylist");
         const pdfLayoutSelect = document.getElementById('pdfLayout');
         const cancelSettingsButton = document.getElementById('cancel_settings_btn');
         const saveSettingsButton = document.getElementById('save_settings_btn');
@@ -178,6 +179,7 @@
         totalPagesElement.style.visibility = 'hidden';
         totalTracksElement.style.visibility = 'hidden';
         settingsDetailsElement.style.visibility = 'hidden';
+        extendsDropdown.disabled = true;
 
         // Get the json data about the playlist_scan_id to export
         const playlist_scan_id = '{{ playlist_scan_id }}'
@@ -188,7 +190,8 @@
         // To store initial settings
         let settings_value = {
             only_unique: uniqueCheckbox.checked,
-            pdf_layout: pdfLayoutSelect.value
+            pdf_layout: pdfLayoutSelect.value,
+            extend_scan: extendsDropdown.value
         };
 
         function toggleSettingsEditable(isEditable) {
@@ -238,11 +241,33 @@
         function buildConfig() {
             return {
                 'only_unique': settings_value.only_unique,
-                'pdf_layout_style': settings_value.pdf_layout
+                'pdf_layout_style': settings_value.pdf_layout,
+                'extend_scan': settings_value.extend_scan
             };
         }
 
         // Todo make into func so details can be refreshed based on updating config
+
+        function populate_extend_dropdown(extend_options) {
+
+            console.log(extendsDropdown.disabled)
+
+            // Check if the dropdown is already populated
+            if (extendsDropdown.disabled) {
+                extend_options.forEach(option => {
+                    // Skip the current scan
+                    if (option.id !== playlist_scan_id){
+                        const newOption = document.createElement("option");
+                        newOption.value = option.id;
+                        newOption.textContent = option.id;
+                        extendsDropdown.appendChild(newOption);
+                    }
+                });
+
+                // Enable the dropdown
+                extendsDropdown.disabled = false;
+            }
+        }
 
         function get_playlist_details() {
 
@@ -262,10 +287,15 @@
                     playlistImageElement.src = playlistData.cover_image_url;
                     playlistImageElement.style.visibility = "visible";
 
-                    totalTracksElement.textContent = `Total Tracks: ${playlistData.amount_of_tracks || 'N/A'}`;
+                    totalTracksElement.textContent = `Total Tracks: ${playlistData.amount_of_tracks === undefined ? 'N/A' : playlistData.amount_of_tracks}`;
                     totalTracksElement.style.visibility = "visible"
 
-                    totalPagesElement.textContent = `Total Pages: ${playlistData.total_pages || 'N/A'}`;
+                    // If there are no tracks, there are no pages
+                    if (playlistData.amount_of_tracks === 0){
+                        playlistData.total_pages = 0
+                    }
+
+                    totalPagesElement.textContent = `Total Pages: ${playlistData.total_pages === undefined ? 'N/A' : playlistData.total_pages}`;
                     totalPagesElement.style.visibility = "visible"
 
                     totalPagesVal = playlistData.total_pages
@@ -280,8 +310,19 @@
 
                     } else {
 
+                        // Populate the dropdown with extend_options
+                        populate_extend_dropdown(playlistData.extend_options)
+
                         // Show Export button
                         export_button.style.display = 'inline-block';
+
+                        if (playlistData.amount_of_tracks > 0){
+                            // Enable the export button
+                            export_button.removeAttribute("disabled");
+                        } else {
+                            // Disable the export button
+                            export_button.setAttribute("disabled", "disabled");
+                        }
 
                         // Show Settings
                         settingsDetailsElement.style.visibility = 'visible';
@@ -409,6 +450,7 @@
             function saveCurrentSettings() {
                 settings_value.only_unique = uniqueCheckbox.checked
                 settings_value.pdf_layout = pdfLayoutSelect.value
+                settings_value.extend_scan = extendsDropdown.value
             }
 
             // Save settings when the details panel is opened
@@ -427,6 +469,7 @@
             cancelSettingsButton.addEventListener('click', () => {
                 uniqueCheckbox.checked = settings_value.only_unique;
                 pdfLayoutSelect.value = settings_value.pdf_layout;
+                extendsDropdown.value = settings_value.extend_scan
                 settingsDetailsElement.open = false
             });
 

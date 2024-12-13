@@ -81,15 +81,28 @@ def get_playlist_details():
         playlist_dao = PlaylistDAO(connection)
         playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)
 
+        if config.get('extend_scan', None) and config['extend_scan'] != "":
+            newer_than_date = playlist_scan_dao.get_attributes(config['extend_scan'], ('ps.timestamp',))['timestamp']
+        else:
+            newer_than_date = None
+
         attributes = playlist_scan_dao.get_attributes(playlist_scan_id, (
-            'p.title', 'p.cover_image_url', 'ps.amount_of_tracks', 'ps.export_completed'
+            'p.title', 'p.id AS playlist_id', 'p.cover_image_url', 'ps.export_completed'
         ))
+
+        # Get all the available previous scans to extend from
+        attributes['extend_options'] = playlist_scan_dao.get_available_scans_to_extend_from(attributes['playlist_id'])
 
         if config.get('only_unique', False):
             track_attributes = playlist_scan_dao.get_track_attributes(playlist_scan_id, (
                 'COUNT(DISTINCT track_id) as amount_of_unique_tracks',
-            ))
-            attributes['amount_of_tracks'] = track_attributes['amount_of_unique_tracks']
+            ), newer_than_date)
+            attributes['amount_of_tracks'] = track_attributes['amount_of_unique_tracks'] if track_attributes['amount_of_unique_tracks'] else 0
+        else:
+            track_attributes = playlist_scan_dao.get_track_attributes(playlist_scan_id, (
+                'COUNT(track_id) as amount_of_tracks',
+            ), newer_than_date)
+            attributes['amount_of_tracks'] = track_attributes['amount_of_tracks'] if track_attributes['amount_of_tracks'] else 0
 
         attributes['total_pages'] = PDF.get_total_pages(attributes['amount_of_tracks'], config.get('pdf_layout_style', 'default'))
 
@@ -179,22 +192,14 @@ def build_pdf(self, playlist_scan_id: str, config: dict):
         playlist_dao = PlaylistDAO(connection)
         playlist_scan_dao = PlaylistScanDAO(connection, playlist_dao, user_dao, track_dao)
 
-        playlist_scan = playlist_scan_dao.get_instance(playlist_scan_id, config.get('only_unique', False))
-        amount_of_tracks = len(playlist_scan.tracks)
-
-        # TODO Check if this setup works
-        if config.get("extends", None):
-            extends_playlist_scan = playlist_scan_dao.get_instance(config['extends'])
+        if config.get("extend_scan", None):
+            extends_playlist_scan = playlist_scan_dao.get_instance(config['extend_scan'])
+            playlist_scan = playlist_scan_dao.get_instance(playlist_scan_id, config.get('only_unique', False), tracks_newer_than = extends_playlist_scan.created_at)
             playlist_scan.extends_playlist_scan = extends_playlist_scan
+        else:
+            playlist_scan = playlist_scan_dao.get_instance(playlist_scan_id, config.get('only_unique', False))
 
-            # Remove tracks that are in extends_playlist_scan
-            existing_tracks = set(track for track in extends_playlist_scan.get_inherited_tracks())
-            current_tracks = set(track for track in playlist_scan.tracks)
-
-            # Configure the current scan with only the new tracks
-            new_tracks = existing_tracks - current_tracks
-            playlist_scan.tracks = list(new_tracks)
-            playlist_scan.amount_of_tracks = len(playlist_scan.tracks)
+        amount_of_tracks = len(playlist_scan.tracks)
 
         # Set initial 0% State
         meta['progress_info']['total_tracks'] = str(amount_of_tracks)

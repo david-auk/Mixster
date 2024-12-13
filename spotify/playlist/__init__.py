@@ -109,14 +109,6 @@ class Playlist:
         else:
             raise Exception("Redirect url not found")
 
-    def get_items_uri(self):  # Todo make (option / default) all uri's unique
-        track_uris = []
-        for item in self.items:
-            item_uri = item['itemV2']['data']['uri']
-            track_uris.append(item_uri)
-
-        return track_uris
-
     def export_attributes(self):
         return {
             'id': self.id,
