@@ -9,8 +9,12 @@ A open-source spin on the interactive music card game: Hitster
 2. Update the .env file:
 
    ```python
+   # Flask config
+   FLASK_PORT=80
+   FLASK_HOST="http://127.0.0.1" # Or some other FQDN you configured
+   
    #Spotify config
-   SPOTIFY_CALLBACK_URL='http://127.0.0.1:5050/auth/callback' # Or some other FQDN you configured
+   SPOTIFY_CALLBACK_URL="${FLASK_HOST}:${FLASK_PORT}/auth/callback"
    SPOTIFY_CLIENT_ID='<my_spotify_client_id>'
    SPOTIFY_CLIENT_SECRET='<my_spotify_client_secret>'
    
@@ -25,7 +29,9 @@ A open-source spin on the interactive music card game: Hitster
    ```
    
    > Spotify's credentials can be acquired from the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-
+   >
+   > Make sure the "SPOTIFY_CALLBACK_URL" is set in the Redirect URIs tab of your dashboard
+   
    Replacing all strings beginning with `<my_>` with your own
    
 

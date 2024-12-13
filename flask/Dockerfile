@@ -28,8 +28,11 @@ COPY . /app
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Make port 5050 available to the world outside this container
-EXPOSE 5050
+# Get the port for flask to run on
+ARG FLASK_PORT
+
+# Make the flask port available to the world outside this container
+EXPOSE ${FLASK_PORT}
 
 RUN mkdir -p "/data/playlist"
 
@@ -43,7 +46,8 @@ USER nonrootuser
 
 # Define environment variable
 ENV FLASK_APP=app.py
-
+ENV FLASK_RUN_PORT=${FLASK_PORT}
+ENV FLASK_RUN_HOST=0.0.0.0
 # Run the application
 #CMD ["waitress-serve", "--port=5050", "--call", "app:create_app"]
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5050"]
+CMD ["flask", "run"]
