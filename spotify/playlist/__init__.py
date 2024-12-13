@@ -109,14 +109,6 @@ class Playlist:
         else:
             raise Exception("Redirect url not found")
 
-    def get_items_uri(self):  # Todo make (option / default) all uri's unique
-        track_uris = []
-        for item in self.items:
-            item_uri = item['itemV2']['data']['uri']
-            track_uris.append(item_uri)
-
-        return track_uris
-
     def export_attributes(self):
         return {
             'id': self.id,
@@ -160,31 +152,6 @@ class PlaylistDAO:
         except Exception as e:
             print(f"Error: {e}")
             self.connection.rollback()
-        finally:
-            cursor.close()
-
-    def get_attributes(self, playlist_id: str, attributes: tuple) -> dict | None:
-        try:
-            cursor = self.connection.cursor(dictionary = True)
-            # Fetch artist data
-            query = f"""
-            SELECT {", ".join(attributes)}
-            FROM playlist as p
-            JOIN playlist_scan ps on ps.playlist_id = p.id
-            WHERE p.id = %s
-            """
-            cursor.execute(query, (playlist_id,))
-            playlist_data = cursor.fetchall()
-
-            if not playlist_data:
-                return None  # Playlist not found
-
-            # Construct and return the Track instance
-            return playlist_data
-
-        except Exception as e:
-            print(f"Error fetching user instance: {e}")
-            return None
         finally:
             cursor.close()
 

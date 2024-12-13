@@ -113,7 +113,7 @@
                     <!-- Extends Playlist -->
                     <div style="margin-top: 10px;">
                         <label for="extendsPlaylist">Extend previous Playlist-Scan</label>
-                        <select id="extendsPlaylist" name="extendsPlaylist" disabled>
+                        <select id="extendsPlaylist" name="extendsPlaylist">
                             <option value="">None</option>
                         </select>
                     </div>
@@ -179,6 +179,7 @@
         totalPagesElement.style.visibility = 'hidden';
         totalTracksElement.style.visibility = 'hidden';
         settingsDetailsElement.style.visibility = 'hidden';
+        extendsDropdown.disabled = true;
 
         // Get the json data about the playlist_scan_id to export
         const playlist_scan_id = '{{ playlist_scan_id }}'
@@ -247,6 +248,27 @@
 
         // Todo make into func so details can be refreshed based on updating config
 
+        function populate_extend_dropdown(extend_options) {
+
+            console.log(extendsDropdown.disabled)
+
+            // Check if the dropdown is already populated
+            if (extendsDropdown.disabled) {
+                extend_options.forEach(option => {
+                    // Skip the current scan
+                    if (option.id !== playlist_scan_id){
+                        const newOption = document.createElement("option");
+                        newOption.value = option.id;
+                        newOption.textContent = option.id;
+                        extendsDropdown.appendChild(newOption);
+                    }
+                });
+
+                // Enable the dropdown
+                extendsDropdown.disabled = false;
+            }
+        }
+
         function get_playlist_details() {
 
             // Fetch playlist details when the page loads
@@ -265,10 +287,15 @@
                     playlistImageElement.src = playlistData.cover_image_url;
                     playlistImageElement.style.visibility = "visible";
 
-                    totalTracksElement.textContent = `Total Tracks: ${playlistData.amount_of_tracks || 'N/A'}`;
+                    totalTracksElement.textContent = `Total Tracks: ${playlistData.amount_of_tracks === undefined ? 'N/A' : playlistData.amount_of_tracks}`;
                     totalTracksElement.style.visibility = "visible"
 
-                    totalPagesElement.textContent = `Total Pages: ${playlistData.total_pages || 'N/A'}`;
+                    // If there are no tracks, there are no pages
+                    if (playlistData.amount_of_tracks === 0){
+                        playlistData.total_pages = 0
+                    }
+
+                    totalPagesElement.textContent = `Total Pages: ${playlistData.total_pages === undefined ? 'N/A' : playlistData.total_pages}`;
                     totalPagesElement.style.visibility = "visible"
 
                     totalPagesVal = playlistData.total_pages
@@ -284,20 +311,18 @@
                     } else {
 
                         // Populate the dropdown with extend_options
-                        if (playlistData.extend_options && Array.isArray(playlistData.extend_options)) {
-                            playlistData.extend_options.forEach(option => {
-                                const newOption = document.createElement("option");
-                                newOption.value = option.id;
-                                newOption.textContent = option.id;
-                                extendsDropdown.appendChild(newOption);
-                            });
-
-                            // Enable the dropdown
-                            extendsDropdown.disabled = false;
-                        }
+                        populate_extend_dropdown(playlistData.extend_options)
 
                         // Show Export button
                         export_button.style.display = 'inline-block';
+
+                        if (playlistData.amount_of_tracks > 0){
+                            // Enable the export button
+                            export_button.removeAttribute("disabled");
+                        } else {
+                            // Disable the export button
+                            export_button.setAttribute("disabled", "disabled");
+                        }
 
                         // Show Settings
                         settingsDetailsElement.style.visibility = 'visible';
