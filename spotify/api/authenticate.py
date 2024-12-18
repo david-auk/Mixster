@@ -17,7 +17,8 @@ SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 SPOTIFY_USER_PROFILE_URL = 'https://api.spotify.com/v1/me'
 
 # Spotify scopes needed to control playback
-SCOPE = 'user-modify-playback-state user-read-playback-state user-read-private'
+SCOPE = ('user-modify-playback-state user-read-playback-state user-read-private playlist-read-private '
+         'playlist-read-collaborative')
 
 
 class Authenticate:
