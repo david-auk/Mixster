@@ -152,18 +152,13 @@ def build_playlist_scan(self, playlist_id: str, access_token: str, user_vars: di
     self.update_state(state = "BUILDING",
                       meta = {'progress_info': {'task_description': 'Getting Playlist info'}})
 
-    try:
-        playlist = Playlist.build_from_url(f"https://open.spotify.com/playlist/{playlist_id}")
-    except Exception as e:
-        return {'state': 'ERROR', 'error_msg': str(e)}
-
     # Build user from user_vars
     user = User(**user_vars)
 
     # Create PlaylistScan object
     self.update_state(state = "BUILDING", meta = {'progress_info': {'task_description': 'Building Tracks using Spotify API'}})
     try:
-        playlist_scan = PlaylistScan.build_from_api(playlist.id, access_token, user)
+        playlist_scan = PlaylistScan.build_from_api(playlist_id, access_token, user)
     except RuntimeError as e:
         return {'state': 'ERROR', 'error_msg': str(e)}
 
