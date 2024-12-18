@@ -55,7 +55,6 @@ def get_recent_playlists():
             "id": playlist["id"],
             "name": playlist["name"],
             "image_url": playlist["images"][0]["url"] if playlist["images"] else None,
-            "url": playlist["external_urls"]["spotify"],
             "track_count": playlist["tracks"]["total"]
         }
         for playlist in data.get("items", [])
