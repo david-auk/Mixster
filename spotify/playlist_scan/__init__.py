@@ -100,7 +100,7 @@ class PlaylistScan:
         playlist = Playlist(
             id = data['id'],
             title = data['name'],
-            cover_image_url = data['images'][0]['url']  # Check for better way to get the best image
+            cover_image_url = data['images'][0]['url']  # TODO Check for better way to get the best image
         )
 
         tracks = []
@@ -110,15 +110,26 @@ class PlaylistScan:
         else:
             next_url = True  # So while loop runs once if there is no need for a second page
         while next_url:
+
             for item in tracks_data['items']:
 
                 # Skip local files
-                if item["track"]["is_local"]:
+                if item.get("track", {}).get("is_local", False):  # Safely check for 'is_local'
+                    continue
+
+                # Check if 'album' exists and is not None
+                if not item["track"].get("album"):
+                    continue
+
+                # Check if 'release_date' exists and is not None
+                if not item["track"]["album"].get("release_date"):
                     continue
 
                 # Convert the artist data into instances
                 artists = []
                 for artist in item['track']['artists']:
+                    if not artist.get("name"):
+                        continue
                     artists.append(Artist(
                         artist_id = artist['id'],
                         name = artist['name']
