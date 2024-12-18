@@ -68,6 +68,15 @@ def check_id(playlist_id):
     return render_template("export/check_id.html", playlist_id=playlist_id)
 
 
+@export_bp.route('/browse', methods = ["GET"])
+def browse():
+    access_token = session.get('access_token')
+    user_vars = session.get('user_vars')
+    if not access_token or not user_vars:
+        return redirect(url_for('auth.login', next = request.path))
+
+    return render_template("export/browse.html")
+
 # Route to serve files from the 'data/playlist/' directory
 @export_bp.route('/data/playlist/<filename>')
 def serve_file(filename):

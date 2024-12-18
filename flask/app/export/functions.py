@@ -1,4 +1,5 @@
 import mysql.connector
+import requests
 from flask import request, jsonify, session
 
 from spotify.playlist import PlaylistDAO, Playlist
@@ -27,6 +28,40 @@ def start_build_scan():
 
     task = build_playlist_scan.delay(playlist_id, access_token, user_vars)
     return {"task_id": task.id}
+
+
+@export_bp.route('/api/recent_playlists', methods=['GET'])
+def get_recent_playlists():
+    access_token = session.get('access_token')
+    user_vars = session.get('user_vars')
+    if not access_token or not user_vars:
+        return {'error': 'User not logged in'}, 500
+
+    # Call Spotify API to fetch playlists
+    headers = {'Authorization': f'Bearer {access_token}', }
+
+    url = f"https://api.spotify.com/v1/users/{user_vars['id']}/playlists"
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        return jsonify({"error": response.json().get('error', {}).get('message', 'Unknown error')}), response.status_code
+
+    data = response.json()
+
+    # Format the playlist data for the frontend
+    playlists = [
+        {
+            "id": playlist["id"],
+            "name": playlist["name"],
+            "image_url": playlist["images"][0]["url"] if playlist["images"] else None,
+            "url": playlist["external_urls"]["spotify"],
+            "track_count": playlist["tracks"]["total"]
+        }
+        for playlist in data.get("items", [])
+    ]
+
+    return jsonify(playlists)
 
 
 @export_bp.route("/api/start-export", methods = ["POST"])

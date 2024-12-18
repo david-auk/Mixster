@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Playlists</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: white;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            padding: 20px;
+        }
+        .tile {
+            background-color: #1DB954;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 200px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            color: black;
+            position: relative;
+            cursor: pointer;
+        }
+        .tile img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .tile .details {
+            padding: 10px 0;
+        }
+        .tile .details .track-count {
+            font-size: 0.9em;
+            color: #333;
+        }
+        .manual-input-tile {
+            background-color: #555;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            width: 200px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            font-size: 1em;
+            display: none; /* Hidden by default */
+        }
+        .manual-input-tile:hover {
+            background-color: #777;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center; margin: 20px 0;">Your Recent Spotify Playlists</h1>
+    <div class="container" id="playlists-container">
+        <div class="manual-input-tile" id="manual-input-tile" onclick="window.location.href='/export/check'">
+            + Add Playlist Manually
+        </div>
+    </div>
+
+    <script>
+        async function fetchPlaylists() {
+            try {
+                const response = await fetch('/export/api/recent_playlists', {
+                    credentials: 'same-origin' // Include session cookies
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch playlists');
+                }
+
+                const playlists = await response.json();
+                const container = document.getElementById('playlists-container');
+                const manualInputTile = document.getElementById('manual-input-tile');
+
+                playlists.forEach(playlist => {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.onclick = () => {
+                        window.location.href = `/export/check/${playlist.id}`;
+                    };
+
+                    const img = document.createElement('img');
+                    img.src = playlist.image_url || 'https://via.placeholder.com/200'; // Fallback image
+                    img.alt = playlist.name;
+                    tile.appendChild(img);
+
+                    const details = document.createElement('div');
+                    details.className = 'details';
+
+                    const name = document.createElement('div');
+                    name.textContent = playlist.name;
+                    details.appendChild(name);
+
+                    const trackCount = document.createElement('div');
+                    trackCount.className = 'track-count';
+                    trackCount.textContent = `${playlist.track_count} Tracks`;
+                    details.appendChild(trackCount);
+
+                    tile.appendChild(details);
+
+                    container.appendChild(tile);
+                });
+
+                // Show the manual input tile after playlists are loaded
+                manualInputTile.style.display = 'block';
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        fetchPlaylists();
+    </script>
+</body>
+</html>
