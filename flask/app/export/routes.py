@@ -18,7 +18,7 @@ def export_playlist():
 
     user = User(**user_vars)
 
-    return redirect('/export/check')
+    return redirect('/export/browse')
 
 
 @export_bp.route('/scan/<scan_id>')
